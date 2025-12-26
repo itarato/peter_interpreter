@@ -1,6 +1,10 @@
 use clap::Parser;
 use std::fs;
 
+mod scanner;
+mod str_reader;
+mod token;
+
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct ProgramArgs {
