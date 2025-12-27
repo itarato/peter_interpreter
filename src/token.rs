@@ -38,6 +38,7 @@ pub(crate) enum TokenKind {
     Slash,
     String,
     Eof,
+    ScanningError(usize),
 }
 
 impl TokenKind {
@@ -81,6 +82,8 @@ impl TokenKind {
             Self::Slash => "SLASH",
             Self::String => "STRING",
             Self::Eof => "EOF",
+            // --
+            Self::ScanningError(_) => unimplemented!(),
         }
     }
 }
@@ -125,14 +128,19 @@ impl<'a> Token<'a> {
     }
 
     pub(crate) fn dump_short(&self) {
-        println!(
-            "{} {} {}",
-            self.kind.to_upper_snake_case(),
-            self.lexeme,
-            self.literal
-                .as_ref()
-                .map(|v| v.to_string_short())
-                .unwrap_or("null".into())
-        );
+        match self.kind {
+            TokenKind::ScanningError(line) => {
+                println!("[line {}] Unexpected character: {}", line + 1, self.lexeme)
+            }
+            _ => println!(
+                "{} {} {}",
+                self.kind.to_upper_snake_case(),
+                self.lexeme,
+                self.literal
+                    .as_ref()
+                    .map(|v| v.to_string_short())
+                    .unwrap_or("null".into())
+            ),
+        }
     }
 }

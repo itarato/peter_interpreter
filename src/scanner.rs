@@ -1,3 +1,5 @@
+use log::error;
+
 use crate::{
     common::{Error, string_token_to_literal},
     str_reader::StrReader,
@@ -70,11 +72,15 @@ impl<'a> Scanner<'a> {
                                 Literal::Str(string_token_to_literal(s)),
                             ));
                         } else {
-                            return Err(format!(
-                                "Incomplete string token at pos {}",
-                                self.reader.pos
-                            )
-                            .into());
+                            error!(
+                                "Invalid string at line {} pos {}",
+                                self.reader.line, self.reader.pos
+                            );
+
+                            tokens.push(Token::new(
+                                TokenKind::ScanningError(self.reader.line),
+                                self.reader.pop(1),
+                            ));
                         }
                     }
                     'a'..='z' | '_' => {
@@ -110,20 +116,28 @@ impl<'a> Scanner<'a> {
                                 Literal::Num(v),
                             )),
                             Err(err) => {
-                                return Err(format!(
-                                    "Invalid number format <{}> at pos {} (error: {})",
-                                    raw, self.reader.pos, err
-                                )
-                                .into());
+                                error!(
+                                    "Invalid number format <{}> at line {} pos {} (error: {})",
+                                    raw, self.reader.line, self.reader.pos, err
+                                );
+
+                                tokens.push(Token::new(
+                                    TokenKind::ScanningError(self.reader.line),
+                                    raw,
+                                ));
                             }
                         }
                     }
                     other => {
-                        return Err(format!(
-                            "Unrecognized char <{}> at pos {}",
-                            other, self.reader.pos
-                        )
-                        .into());
+                        error!(
+                            "Unrecognized char <{}> at line {} pos {}",
+                            other, self.reader.line, self.reader.pos
+                        );
+
+                        tokens.push(Token::new(
+                            TokenKind::ScanningError(self.reader.line),
+                            self.reader.pop(1),
+                        ));
                     }
                 },
                 None => break,

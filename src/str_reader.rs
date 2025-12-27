@@ -1,25 +1,37 @@
 pub(crate) struct StrReader<'a> {
     stream: &'a str,
     pub(crate) pos: usize,
+    pub(crate) line: usize,
 }
 
 impl<'a> StrReader<'a> {
     pub(crate) fn new(stream: &'a str) -> Self {
-        Self { stream, pos: 0 }
+        Self {
+            stream,
+            pos: 0,
+            line: 0,
+        }
     }
 
-    pub(crate) fn drop(&mut self, len: usize) {
+    fn advance(&mut self, len: usize) {
+        self.line += self.stream[..len].matches('\n').count();
+
         self.stream = &self.stream[len..];
         self.pos += len;
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn drop(&mut self, len: usize) {
+        self.advance(len);
     }
 
     pub(crate) fn pop(&mut self, len: usize) -> &'a str {
         let out = &self.stream[..len];
-        self.stream = &self.stream[len..];
-        self.pos += len;
+        self.advance(len);
         out
     }
 
+    #[allow(dead_code)]
     pub(crate) fn pop1(&mut self) -> char {
         self.pop(1).chars().next().unwrap()
     }
@@ -56,10 +68,10 @@ impl<'a> StrReader<'a> {
         F: Fn(char) -> bool,
     {
         let len = self.while_predicate_len(predicate, 0);
-        self.stream = &self.stream[len..];
-        self.pos += len;
+        self.advance(len);
     }
 
+    #[allow(dead_code)]
     pub(crate) fn len(&self) -> usize {
         self.stream.len()
     }
@@ -156,5 +168,20 @@ mod test {
             None,
             StrReader::new("\"abc\"abc\"").pop_until(0, |c| c == 'x')
         );
+    }
+
+    #[test]
+    fn test_line_counter() {
+        let mut sr = StrReader::new("a\nb\nc\nd");
+
+        assert_eq!(0, sr.line);
+
+        sr.drop(1);
+
+        assert_eq!(0, sr.line);
+
+        sr.drop(3);
+
+        assert_eq!(2, sr.line);
     }
 }
