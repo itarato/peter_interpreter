@@ -28,15 +28,36 @@ impl<'a> Scanner<'a> {
                     '+' => tokens.push(Token::new(TokenKind::Plus, self.reader.pop(1))),
                     '-' => tokens.push(Token::new(TokenKind::Minus, self.reader.pop(1))),
                     '*' => tokens.push(Token::new(TokenKind::Star, self.reader.pop(1))),
-                    // !=
-                    // ==
-                    // <=
-                    // >=
-                    // !=
-                    '<' => tokens.push(Token::new(TokenKind::Less, self.reader.pop(1))),
-                    '>' => tokens.push(Token::new(TokenKind::Greater, self.reader.pop(1))),
                     '/' => tokens.push(Token::new(TokenKind::Slash, self.reader.pop(1))),
                     '.' => tokens.push(Token::new(TokenKind::Dot, self.reader.pop(1))),
+                    '!' => {
+                        if let Some("!=") = self.reader.peek(2) {
+                            tokens.push(Token::new(TokenKind::BangEqual, self.reader.pop(2)));
+                        } else {
+                            tokens.push(Token::new(TokenKind::Bang, self.reader.pop(1)));
+                        }
+                    }
+                    '=' => {
+                        if let Some("==") = self.reader.peek(2) {
+                            tokens.push(Token::new(TokenKind::EqualEqual, self.reader.pop(2)));
+                        } else {
+                            tokens.push(Token::new(TokenKind::Equal, self.reader.pop(1)));
+                        }
+                    }
+                    '<' => {
+                        if let Some("<=") = self.reader.peek(2) {
+                            tokens.push(Token::new(TokenKind::LessEqual, self.reader.pop(2)));
+                        } else {
+                            tokens.push(Token::new(TokenKind::Less, self.reader.pop(1)));
+                        }
+                    }
+                    '>' => {
+                        if let Some(">=") = self.reader.peek(2) {
+                            tokens.push(Token::new(TokenKind::GreaterEqual, self.reader.pop(2)));
+                        } else {
+                            tokens.push(Token::new(TokenKind::Greater, self.reader.pop(1)));
+                        }
+                    }
                     other => {
                         return Err(format!(
                             "Unrecognized char <{}> at pos {}",
@@ -75,6 +96,21 @@ mod test {
         assert_eq!(
             vec![TokenKind::LeftParen, TokenKind::RightParen, TokenKind::Eof],
             tokenize(" (\t)\n")
+        );
+    }
+
+    #[test]
+    fn test_signs() {
+        assert_eq!(
+            vec![
+                TokenKind::BangEqual,
+                TokenKind::EqualEqual,
+                TokenKind::Equal,
+                TokenKind::Less,
+                TokenKind::LessEqual,
+                TokenKind::Eof
+            ],
+            tokenize("!====<<=")
         );
     }
 
