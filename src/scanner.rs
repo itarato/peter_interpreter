@@ -242,6 +242,11 @@ mod test {
             vec![TokenKind::Identifier, TokenKind::Identifier, TokenKind::Eof],
             tokenize("abc// hello\n   def")
         );
+
+        assert_eq!(
+            vec![TokenKind::Identifier, TokenKind::Identifier, TokenKind::Eof],
+            tokenize("abc//Unicode:£§᯽☺♣\n   def")
+        );
     }
 
     fn tokenize<'a>(source: &str) -> Vec<TokenKind> {

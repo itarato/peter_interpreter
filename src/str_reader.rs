@@ -80,10 +80,20 @@ impl<'a> StrReader<'a> {
     where
         F: Fn(char) -> bool,
     {
-        let mut len = 0;
+        let mut len = self.stream.chars().take(skip).map(|c| c.len_utf8()).sum();
+
         let mut chars = self.stream.chars().skip(skip);
-        while len < self.stream.len() && chars.next().map(|c| predicate(c)).unwrap_or(false) {
-            len += 1;
+        while len < self.stream.len() {
+            match chars.next() {
+                Some(c) => {
+                    if !predicate(c) {
+                        break;
+                    }
+
+                    len += c.len_utf8();
+                }
+                None => break,
+            }
         }
         len
     }
@@ -92,13 +102,18 @@ impl<'a> StrReader<'a> {
     where
         F: Fn(char) -> bool,
     {
-        let mut len = skip;
+        let mut len = self.stream.chars().take(skip).map(|c| c.len_utf8()).sum();
+
         let mut chars = self.stream.chars().skip(skip);
         while len < self.stream.len() {
-            len += 1;
-
-            if chars.next().map(|c| predicate(c)).unwrap_or(false) {
-                return Some(len);
+            match chars.next() {
+                Some(c) => {
+                    len += c.len_utf8();
+                    if predicate(c) {
+                        return Some(len);
+                    }
+                }
+                None => break,
             }
         }
 
