@@ -137,7 +137,11 @@ impl<'a> Token<'a> {
     pub(crate) fn dump_short(&self) {
         match self.kind {
             TokenKind::ScanningError(line) => {
-                eprintln!("[line {}] Unexpected character: {}", line + 1, self.lexeme)
+                eprintln!(
+                    "[line {}] Error: Unexpected character: {}",
+                    line + 1,
+                    self.lexeme
+                )
             }
             _ => println!(
                 "{} {} {}",
