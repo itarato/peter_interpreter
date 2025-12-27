@@ -21,6 +21,22 @@ impl<'a> Scanner<'a> {
                 Some(c) => match c {
                     '(' => tokens.push(Token::new(TokenKind::LeftParen, self.reader.pop(1))),
                     ')' => tokens.push(Token::new(TokenKind::RightParen, self.reader.pop(1))),
+                    '{' => tokens.push(Token::new(TokenKind::LeftBrace, self.reader.pop(1))),
+                    '}' => tokens.push(Token::new(TokenKind::RightBrace, self.reader.pop(1))),
+                    ';' => tokens.push(Token::new(TokenKind::Semicolon, self.reader.pop(1))),
+                    ',' => tokens.push(Token::new(TokenKind::Comma, self.reader.pop(1))),
+                    '+' => tokens.push(Token::new(TokenKind::Plus, self.reader.pop(1))),
+                    '-' => tokens.push(Token::new(TokenKind::Minus, self.reader.pop(1))),
+                    '*' => tokens.push(Token::new(TokenKind::Star, self.reader.pop(1))),
+                    // !=
+                    // ==
+                    // <=
+                    // >=
+                    // !=
+                    '<' => tokens.push(Token::new(TokenKind::Less, self.reader.pop(1))),
+                    '>' => tokens.push(Token::new(TokenKind::Greater, self.reader.pop(1))),
+                    '/' => tokens.push(Token::new(TokenKind::Slash, self.reader.pop(1))),
+                    '.' => tokens.push(Token::new(TokenKind::Dot, self.reader.pop(1))),
                     other => {
                         return Err(format!(
                             "Unrecognized char <{}> at pos {}",

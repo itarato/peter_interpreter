@@ -38,6 +38,49 @@ pub(crate) enum TokenKind {
     Eof,
 }
 
+impl TokenKind {
+    fn to_upper_snake_case(&self) -> &str {
+        match self {
+            Self::Identifier => "IDENTIFIER",
+            Self::And => "AND",
+            Self::Class => "CLASS",
+            Self::Else => "ELSE",
+            Self::False => "FALSE",
+            Self::For => "FOR",
+            Self::Fun => "FUN",
+            Self::If => "IF",
+            Self::Nil => "NIL",
+            Self::Or => "OR",
+            Self::Return => "RETURN",
+            Self::Super => "SUPER",
+            Self::This => "THIS",
+            Self::True => "TRUE",
+            Self::Var => "VAR",
+            Self::While => "WHILE",
+            Self::Number => "NUMBER",
+            Self::Dot => "DOT",
+            Self::LeftParen => "LEFT_PAREN",
+            Self::RightParen => "RIGHT_PAREN",
+            Self::LeftBrace => "LEFT_BRACE",
+            Self::RightBrace => "RIGHT_BRACE",
+            Self::Semicolon => "SEMICOLON",
+            Self::Comma => "COMMA",
+            Self::Plus => "PLUS",
+            Self::Minus => "MINUS",
+            Self::Star => "STAR",
+            Self::BangEqual => "BANG_EQUAL",
+            Self::EqualEqual => "EQUAL_EQUAL",
+            Self::LessEqual => "LESS_EQUAL",
+            Self::GreaterEqual => "GREATER_EQUAL",
+            Self::Less => "LESS",
+            Self::Greater => "GREATER",
+            Self::Slash => "SLASH",
+            Self::String => "STRING",
+            Self::Eof => "EOF",
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub(crate) enum Literal {
     Str(String),
@@ -66,5 +109,17 @@ impl<'a> Token<'a> {
             lexeme,
             literal: Some(literal),
         }
+    }
+
+    pub(crate) fn dump_short(&self) {
+        println!(
+            "{} {} {}",
+            self.kind.to_upper_snake_case(),
+            self.lexeme,
+            self.literal
+                .as_ref()
+                .map(|v| format!("{:?}", v))
+                .unwrap_or("null".into())
+        );
     }
 }

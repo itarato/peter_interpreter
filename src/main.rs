@@ -1,5 +1,8 @@
 use clap::Parser;
+use log::{error, info};
 use std::fs;
+
+use crate::scanner::Scanner;
 
 mod common;
 mod scanner;
@@ -14,26 +17,29 @@ struct ProgramArgs {
 }
 
 fn main() {
+    // unsafe { std::env::set_var("RUST_LOG", "debug") };
+    pretty_env_logger::init();
+
+    info!("Peter Interpreter Start");
+
     let program_args = ProgramArgs::parse();
 
     match program_args.command.as_str() {
         "tokenize" => {
-            // You can use print statements as follows for debugging, they'll be visible when running tests.
-            eprintln!("Logs from your program will appear here!");
-
             let file_contents = fs::read_to_string(&program_args.filename).unwrap_or_else(|_| {
-                eprintln!("Failed to read file {}", program_args.filename);
+                error!("Failed to read file {}", program_args.filename);
                 String::new()
             });
 
-            if !file_contents.is_empty() {
-                panic!("Scanner not implemented");
-            } else {
-                println!("EOF  null");
+            match Scanner::new(&file_contents).scan() {
+                Ok(tokens) => {
+                    tokens.iter().for_each(|token| token.dump_short());
+                }
+                Err(err) => error!("Error while scanning source: {:?}", err),
             }
         }
         other => {
-            eprintln!("Unknown command: {}", other);
+            error!("Unknown command: {}", other);
         }
     }
 }
