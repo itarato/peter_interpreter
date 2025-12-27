@@ -1,6 +1,7 @@
 use clap::Parser;
 use std::fs;
 
+mod common;
 mod scanner;
 mod str_reader;
 mod token;

@@ -1,19 +1,22 @@
 pub(crate) struct StrReader<'a> {
     stream: &'a str,
+    pub(crate) pos: usize,
 }
 
 impl<'a> StrReader<'a> {
     pub(crate) fn new(stream: &'a str) -> Self {
-        Self { stream }
+        Self { stream, pos: 0 }
     }
 
     pub(crate) fn drop(&mut self, len: usize) {
-        self.stream = &self.stream[len..]
+        self.stream = &self.stream[len..];
+        self.pos += len;
     }
 
-    pub(crate) fn pop(&mut self, len: usize) -> &str {
+    pub(crate) fn pop(&mut self, len: usize) -> &'a str {
         let out = &self.stream[..len];
         self.stream = &self.stream[len..];
+        self.pos += len;
         out
     }
 
@@ -21,7 +24,7 @@ impl<'a> StrReader<'a> {
         self.pop(1).chars().next().unwrap()
     }
 
-    pub(crate) fn peek(&self, len: usize) -> Option<&str> {
+    pub(crate) fn peek(&self, len: usize) -> Option<&'a str> {
         if self.stream.len() < len {
             None
         } else {
@@ -33,7 +36,7 @@ impl<'a> StrReader<'a> {
         self.peek(1).map(|s| s.chars().next().unwrap())
     }
 
-    pub(crate) fn pop_until<F>(&mut self, predicate: F) -> &str
+    pub(crate) fn pop_until<F>(&mut self, predicate: F) -> &'a str
     where
         F: Fn(char) -> bool,
     {
@@ -46,6 +49,7 @@ impl<'a> StrReader<'a> {
     {
         let len = self.predicate_len(predicate, 0);
         self.stream = &self.stream[len..];
+        self.pos += len;
     }
 
     pub(crate) fn len(&self) -> usize {
