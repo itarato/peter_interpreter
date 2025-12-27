@@ -34,8 +34,14 @@ impl<'a> Scanner<'a> {
                     '+' => tokens.push(Token::new(TokenKind::Plus, self.reader.pop(1))),
                     '-' => tokens.push(Token::new(TokenKind::Minus, self.reader.pop(1))),
                     '*' => tokens.push(Token::new(TokenKind::Star, self.reader.pop(1))),
-                    '/' => tokens.push(Token::new(TokenKind::Slash, self.reader.pop(1))),
                     '.' => tokens.push(Token::new(TokenKind::Dot, self.reader.pop(1))),
+                    '/' => {
+                        if let Some("//") = self.reader.peek(2) {
+                            self.reader.drop_while(|c| c != '\n');
+                        } else {
+                            tokens.push(Token::new(TokenKind::Slash, self.reader.pop(1)));
+                        }
+                    }
                     '!' => {
                         if let Some("!=") = self.reader.peek(2) {
                             tokens.push(Token::new(TokenKind::BangEqual, self.reader.pop(2)));
@@ -227,6 +233,14 @@ mod test {
                 TokenKind::Eof
             ],
             tokenize("12 12.34 .12 12.")
+        );
+    }
+
+    #[test]
+    fn test_comments() {
+        assert_eq!(
+            vec![TokenKind::Identifier, TokenKind::Identifier, TokenKind::Eof],
+            tokenize("abc// hello\n   def")
         );
     }
 
