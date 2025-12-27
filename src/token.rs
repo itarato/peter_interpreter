@@ -38,7 +38,8 @@ pub(crate) enum TokenKind {
     Slash,
     String,
     Eof,
-    ScanningError(usize),
+    UnexpectedCharacterError(usize),
+    UnterminatedStringError(usize),
 }
 
 impl TokenKind {
@@ -83,7 +84,8 @@ impl TokenKind {
             Self::String => "STRING",
             Self::Eof => "EOF",
             // --
-            Self::ScanningError(_) => unimplemented!(),
+            Self::UnexpectedCharacterError(_) => unimplemented!(),
+            Self::UnterminatedStringError(_) => unimplemented!(),
         }
     }
 }
@@ -129,19 +131,23 @@ impl<'a> Token<'a> {
 
     pub(crate) fn is_error(&self) -> bool {
         match self.kind {
-            TokenKind::ScanningError(_) => true,
+            TokenKind::UnexpectedCharacterError(_) => true,
+            TokenKind::UnterminatedStringError(_) => true,
             _ => false,
         }
     }
 
     pub(crate) fn dump_short(&self) {
         match self.kind {
-            TokenKind::ScanningError(line) => {
+            TokenKind::UnexpectedCharacterError(line) => {
                 eprintln!(
                     "[line {}] Error: Unexpected character: {}",
                     line + 1,
                     self.lexeme
                 )
+            }
+            TokenKind::UnterminatedStringError(line) => {
+                eprintln!("[line {}] Error: Unterminated string.", line + 1,)
             }
             _ => println!(
                 "{} {} {}",

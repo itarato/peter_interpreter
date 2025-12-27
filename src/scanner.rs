@@ -84,9 +84,10 @@ impl<'a> Scanner<'a> {
                             );
 
                             tokens.push(Token::new(
-                                TokenKind::ScanningError(self.reader.line),
+                                TokenKind::UnterminatedStringError(self.reader.line),
                                 self.reader.pop(1),
                             ));
+                            break;
                         }
                     }
                     'a'..='z' | '_' => {
@@ -128,7 +129,7 @@ impl<'a> Scanner<'a> {
                                 );
 
                                 tokens.push(Token::new(
-                                    TokenKind::ScanningError(self.reader.line),
+                                    TokenKind::UnexpectedCharacterError(self.reader.line),
                                     raw,
                                 ));
                             }
@@ -141,7 +142,7 @@ impl<'a> Scanner<'a> {
                         );
 
                         tokens.push(Token::new(
-                            TokenKind::ScanningError(self.reader.line),
+                            TokenKind::UnexpectedCharacterError(self.reader.line),
                             self.reader.pop(1),
                         ));
                     }
