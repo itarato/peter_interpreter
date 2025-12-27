@@ -1,5 +1,5 @@
 var foo = 12;
 
-if foo <= 34.12 {
+IF foo <= 34.12 {
     print("hello");
 }

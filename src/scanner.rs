@@ -90,7 +90,7 @@ impl<'a> Scanner<'a> {
                             break;
                         }
                     }
-                    'a'..='z' | '_' => {
+                    'a'..='z' | 'A'..='Z' | '_' => {
                         let raw = self
                             .reader
                             .pop_while(|c| c.is_ascii_alphanumeric() || c == '_');
@@ -111,10 +111,11 @@ impl<'a> Scanner<'a> {
                             "true" => tokens.push(Token::new(TokenKind::True, raw)),
                             "var" => tokens.push(Token::new(TokenKind::Var, raw)),
                             "while" => tokens.push(Token::new(TokenKind::While, raw)),
-                            other => tokens.push(Token::new(TokenKind::Identifier, other)),
+                            "print" => tokens.push(Token::new(TokenKind::Print, raw)),
+                            _ => tokens.push(Token::new(TokenKind::Identifier, raw)),
                         }
                     }
-                    '1'..='9' => {
+                    '0'..='9' => {
                         let raw = self.reader.pop_while(|c| c.is_ascii_digit() || c == '.');
                         match raw.parse::<f64>() {
                             Ok(v) => tokens.push(Token::new_with_literal(

@@ -18,6 +18,7 @@ pub(crate) enum TokenKind {
     While,
     Number,
     Dot,
+    Print,
     LeftParen,
     RightParen,
     LeftBrace,
@@ -82,6 +83,7 @@ impl TokenKind {
             Self::Greater => "GREATER",
             Self::Slash => "SLASH",
             Self::String => "STRING",
+            Self::Print => "PRINT",
             Self::Eof => "EOF",
             // --
             Self::UnexpectedCharacterError(_) => unimplemented!(),
