@@ -36,18 +36,26 @@ impl<'a> StrReader<'a> {
         self.peek(1).map(|s| s.chars().next().unwrap())
     }
 
-    pub(crate) fn pop_until<F>(&mut self, predicate: F) -> &'a str
+    pub(crate) fn pop_while<F>(&mut self, predicate: F) -> &'a str
     where
         F: Fn(char) -> bool,
     {
-        self.pop(self.predicate_len(predicate, 0))
+        self.pop(self.while_predicate_len(predicate, 0))
     }
 
-    pub(crate) fn drop_until<F>(&mut self, predicate: F)
+    pub(crate) fn pop_until<F>(&mut self, skip: usize, predicate: F) -> Option<&'a str>
     where
         F: Fn(char) -> bool,
     {
-        let len = self.predicate_len(predicate, 0);
+        self.until_predicate_len(predicate, skip)
+            .map(|len| self.pop(len))
+    }
+
+    pub(crate) fn drop_while<F>(&mut self, predicate: F)
+    where
+        F: Fn(char) -> bool,
+    {
+        let len = self.while_predicate_len(predicate, 0);
         self.stream = &self.stream[len..];
         self.pos += len;
     }
@@ -56,7 +64,7 @@ impl<'a> StrReader<'a> {
         self.stream.len()
     }
 
-    fn predicate_len<F>(&self, predicate: F, skip: usize) -> usize
+    fn while_predicate_len<F>(&self, predicate: F, skip: usize) -> usize
     where
         F: Fn(char) -> bool,
     {
@@ -66,6 +74,23 @@ impl<'a> StrReader<'a> {
             len += 1;
         }
         len
+    }
+
+    fn until_predicate_len<F>(&self, predicate: F, skip: usize) -> Option<usize>
+    where
+        F: Fn(char) -> bool,
+    {
+        let mut len = skip;
+        let mut chars = self.stream.chars().skip(skip);
+        while len < self.stream.len() {
+            len += 1;
+
+            if chars.next().map(|c| predicate(c)).unwrap_or(false) {
+                return Some(len);
+            }
+        }
+
+        None
     }
 }
 
@@ -93,18 +118,18 @@ mod test {
     }
 
     #[test]
-    fn test_pop_and_drop_until() {
+    fn test_pop_and_drop_while() {
         let mut sr = StrReader::new("aaa         123            ccc");
-        assert_eq!("", sr.pop_until(|c| { c.is_digit(10) }));
-        assert_eq!("aaa", sr.pop_until(|c| c.is_ascii_alphabetic()));
+        assert_eq!("", sr.pop_while(|c| { c.is_digit(10) }));
+        assert_eq!("aaa", sr.pop_while(|c| c.is_ascii_alphabetic()));
 
-        sr.drop_until(|c| c.is_ascii_whitespace());
+        sr.drop_while(|c| c.is_ascii_whitespace());
 
-        assert_eq!("123", sr.pop_until(|c| c.is_ascii_digit()));
+        assert_eq!("123", sr.pop_while(|c| c.is_ascii_digit()));
 
-        sr.drop_until(|c| c.is_ascii_whitespace());
+        sr.drop_while(|c| c.is_ascii_whitespace());
 
-        assert_eq!("ccc", sr.pop_until(|_| true));
+        assert_eq!("ccc", sr.pop_while(|_| true));
     }
 
     #[test]
@@ -115,5 +140,21 @@ mod test {
         assert_eq!(2, sr.len());
         sr.drop(2);
         assert_eq!(0, sr.len());
+    }
+
+    #[test]
+    fn test_pop_until() {
+        assert_eq!(
+            Some("\"abc\""),
+            StrReader::new("\"abc\"abc\"").pop_until(1, |c| c == '"')
+        );
+        assert_eq!(
+            Some("\""),
+            StrReader::new("\"abc\"abc\"").pop_until(0, |c| c == '"')
+        );
+        assert_eq!(
+            None,
+            StrReader::new("\"abc\"abc\"").pop_until(0, |c| c == 'x')
+        );
     }
 }

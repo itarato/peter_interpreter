@@ -91,6 +91,15 @@ pub(crate) enum Literal {
     Num(f64),
 }
 
+impl Literal {
+    fn to_string_short(&self) -> String {
+        match self {
+            Self::Str(s) => s.clone(),
+            Self::Num(n) => n.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub(crate) struct Token<'a> {
     pub(crate) kind: TokenKind,
@@ -122,7 +131,7 @@ impl<'a> Token<'a> {
             self.lexeme,
             self.literal
                 .as_ref()
-                .map(|v| format!("{:?}", v))
+                .map(|v| v.to_string_short())
                 .unwrap_or("null".into())
         );
     }
