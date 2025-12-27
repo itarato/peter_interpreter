@@ -127,6 +127,13 @@ impl<'a> Token<'a> {
         }
     }
 
+    pub(crate) fn is_error(&self) -> bool {
+        match self.kind {
+            TokenKind::ScanningError(_) => true,
+            _ => false,
+        }
+    }
+
     pub(crate) fn dump_short(&self) {
         match self.kind {
             TokenKind::ScanningError(line) => {

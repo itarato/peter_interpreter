@@ -2,7 +2,10 @@ use clap::Parser;
 use log::{error, info};
 use std::fs;
 
-use crate::scanner::Scanner;
+use crate::{
+    common::{EXIT_CODE_LEXICAL_ERROR, EXIT_CODE_SUCCESS},
+    scanner::Scanner,
+};
 
 mod common;
 mod scanner;
@@ -24,6 +27,8 @@ fn main() {
 
     let program_args = ProgramArgs::parse();
 
+    let mut exit_code = EXIT_CODE_SUCCESS;
+
     match program_args.command.as_str() {
         "tokenize" => {
             let file_contents = fs::read_to_string(&program_args.filename).unwrap_or_else(|_| {
@@ -34,6 +39,9 @@ fn main() {
             match Scanner::new(&file_contents).scan() {
                 Ok(tokens) => {
                     tokens.iter().for_each(|token| token.dump_short());
+                    if tokens.iter().any(|t| t.is_error()) {
+                        exit_code = EXIT_CODE_LEXICAL_ERROR;
+                    }
                 }
                 Err(err) => error!("Error while scanning source: {:?}", err),
             }
@@ -42,4 +50,6 @@ fn main() {
             error!("Unknown command: {}", other);
         }
     }
+
+    std::process::exit(exit_code)
 }
