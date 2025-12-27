@@ -100,7 +100,7 @@ impl Literal {
     fn to_string_short(&self) -> String {
         match self {
             Self::Str(s) => s.clone(),
-            Self::Num(n) => n.to_string(),
+            Self::Num(n) => format!("{:?}", n),
         }
     }
 }
