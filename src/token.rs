@@ -16,7 +16,7 @@ pub(crate) enum TokenKind {
     True,
     Var,
     While,
-    Number,
+    Number(f64),
     Dot,
     Print,
     LeftParen,
@@ -37,7 +37,7 @@ pub(crate) enum TokenKind {
     Less,
     Greater,
     Slash,
-    String,
+    String(String),
     Eof,
     UnexpectedCharacterError(usize),
     UnterminatedStringError(usize),
@@ -93,42 +93,14 @@ impl TokenKind {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum Literal {
-    Str(String),
-    Num(f64),
-}
-
-impl Literal {
-    fn to_string_short(&self) -> String {
-        match self {
-            Self::Str(s) => s.clone(),
-            Self::Num(n) => format!("{:?}", n),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
 pub(crate) struct Token<'a> {
     pub(crate) kind: TokenKind,
     pub(crate) lexeme: &'a str,
-    pub(crate) literal: Option<Literal>,
 }
 
 impl<'a> Token<'a> {
     pub(crate) fn new(kind: TokenKind, lexeme: &'a str) -> Self {
-        Self {
-            kind,
-            lexeme,
-            literal: None,
-        }
-    }
-
-    pub(crate) fn new_with_literal(kind: TokenKind, lexeme: &'a str, literal: Literal) -> Self {
-        Self {
-            kind,
-            lexeme,
-            literal: Some(literal),
-        }
+        Self { kind, lexeme }
     }
 
     pub(crate) fn is_error(&self) -> bool {

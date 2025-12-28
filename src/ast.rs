@@ -33,9 +33,16 @@ pub(crate) enum UnaryOp {
     Negate,
 }
 
+pub(crate) enum AstValue {
+    Str(String),
+    Number(f64),
+    Boolean(bool),
+    Nil,
+}
+
 pub(crate) enum AstExpression {
     Literal {
-        value: Literal,
+        value: AstValue,
     },
     Unary {
         op: UnaryOp,

@@ -1,7 +1,7 @@
 use crate::{
     ast::{AstExpression, AstStatement, AstStatementList},
     common::{Error, Reader},
-    token::{Token, TokenKind},
+    token::{self, Token, TokenKind},
 };
 
 pub(crate) struct Parser<'a> {
@@ -41,6 +41,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self) -> Result<AstExpression, Error> {
+    }
+
+    fn parse_single_expression_unit(&mut self) -> Result<AstExpression, Error> {
         match self.reader.peek().unwrap().kind {
             TokenKind::LeftParen => {
                 self.pop_and_assert(TokenKind::LeftParen)?;
@@ -51,11 +54,37 @@ impl<'a> Parser<'a> {
                     expr: Box::new(expr),
                 })
             }
+            TokenKind::String => Ok(AstExpression::Literal { value: crate::ast::AstValue::Str(token) })
+            | TokenKind::Number
+            | TokenKind::True
+            | TokenKind::False
+            | TokenKind::Nil => {
+                let literal = self.reader.pop().unwrap();
+
+                unimplemented!()
+            }
+
             other => unimplemented!(
                 "Token {:?} not implemented yet for expression parsing",
                 other
             ),
         }
+    }
+
+    fn parse_expression_sequence(
+        &mut self,
+    ) -> Result<(Vec<AstExpression>, Vec<&'a Token<'a>>), Error> {
+        let mut expressions = vec![];
+        let mut ops = vec![];
+
+        loop {
+            match self.reader.peek() {
+                Some(token) => match token.kind {},
+                None => break,
+            }
+        }
+
+        Ok((expressions, ops))
     }
 
     fn pop_and_assert(&mut self, kind_expected: TokenKind) -> Result<(), Error> {
