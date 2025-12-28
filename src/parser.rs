@@ -77,14 +77,14 @@ impl<'a> Parser<'a> {
                 })
             }
             TokenKind::Bang => {
-                let expr = self.parse_expression()?;
+                let expr = self.parse_single_expression_unit()?;
                 Ok(AstExpression::Unary {
                     op: UnaryOp::Bang,
                     expr: Box::new(expr),
                 })
             }
             TokenKind::Minus => {
-                let expr = self.parse_expression()?;
+                let expr = self.parse_single_expression_unit()?;
                 Ok(AstExpression::Unary {
                     op: UnaryOp::Minus,
                     expr: Box::new(expr),
