@@ -7,7 +7,9 @@ use crate::{
     scanner::Scanner,
 };
 
+mod ast;
 mod common;
+mod parser;
 mod scanner;
 mod str_reader;
 mod token;

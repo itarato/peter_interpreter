@@ -17,7 +17,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub(crate) fn scan(&mut self) -> Result<Vec<Token<'a>>, Error> {
+    pub(crate) fn scan(mut self) -> Result<Vec<Token<'a>>, Error> {
         let mut tokens = vec![];
 
         loop {
