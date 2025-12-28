@@ -16,23 +16,74 @@
 //      | if
 //      | if-else
 
-use crate::token::Literal;
+use crate::token::TokenKind;
 
-pub(crate) type AstStatementList = Vec<AstStatement>;
-
+#[derive(Debug)]
 pub(crate) enum BinaryOp {
     And,
     Or,
     Plus,
     Minus,
-    Multiply,
-    Divide,
+    Star,
+    Slash,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    EqualEqual,
 }
 
+impl BinaryOp {
+    pub(crate) fn from_token_kind(kind: &TokenKind) -> Option<Self> {
+        match kind {
+            TokenKind::And => Some(Self::And),
+            TokenKind::Or => Some(Self::Or),
+            TokenKind::Plus => Some(Self::Plus),
+            TokenKind::Minus => Some(Self::Minus),
+            TokenKind::Star => Some(Self::Star),
+            TokenKind::Slash => Some(Self::Slash),
+            TokenKind::Less => Some(Self::Less),
+            TokenKind::LessEqual => Some(Self::LessEqual),
+            TokenKind::Greater => Some(Self::Greater),
+            TokenKind::GreaterEqual => Some(Self::GreaterEqual),
+            TokenKind::EqualEqual => Some(Self::EqualEqual),
+            _ => None,
+        }
+    }
+
+    fn dump(&self) -> String {
+        match self {
+            Self::And => "&&".into(),
+            Self::Or => "||".into(),
+            Self::Plus => "+".into(),
+            Self::Minus => "-".into(),
+            Self::Star => "*".into(),
+            Self::Slash => "/".into(),
+            Self::Less => "<".into(),
+            Self::LessEqual => "<=".into(),
+            Self::Greater => ">".into(),
+            Self::GreaterEqual => ">=".into(),
+            Self::EqualEqual => "==".into(),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(crate) enum UnaryOp {
-    Negate,
+    Minus,
+    Bang,
 }
 
+impl UnaryOp {
+    fn dump(&self) -> String {
+        match self {
+            Self::Minus => "-".into(),
+            Self::Bang => "!".into(),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(crate) enum AstValue {
     Str(String),
     Number(f64),
@@ -40,6 +91,18 @@ pub(crate) enum AstValue {
     Nil,
 }
 
+impl AstValue {
+    fn dump(&self) -> String {
+        match self {
+            Self::Str(s) => s.clone(),
+            Self::Number(v) => format!("{:?}", v),
+            Self::Boolean(v) => format!("{:?}", v),
+            Self::Nil => String::from("nil"),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(crate) enum AstExpression {
     Literal {
         value: AstValue,
@@ -58,6 +121,43 @@ pub(crate) enum AstExpression {
     },
 }
 
+impl AstExpression {
+    fn dump(&self) -> String {
+        match self {
+            Self::Literal { value } => value.dump(),
+            Self::Unary { op, expr } => format!("({} {})", op.dump(), expr.dump()),
+            Self::Binary {
+                op,
+                lhs_expr,
+                rhs_expr,
+            } => format!("({} {} {})", op.dump(), lhs_expr.dump(), rhs_expr.dump()),
+            Self::Group { expr } => format!("(group {})", expr.dump()),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(crate) enum AstStatement {
     Expr(AstExpression),
+}
+
+impl AstStatement {
+    fn dump(&self) -> String {
+        match self {
+            Self::Expr(expr) => expr.dump(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct AstStatementList(pub(crate) Vec<AstStatement>);
+
+impl AstStatementList {
+    pub(crate) fn dump(&self) -> String {
+        self.0
+            .iter()
+            .map(|stmt| stmt.dump())
+            .collect::<Vec<_>>()
+            .join("")
+    }
 }

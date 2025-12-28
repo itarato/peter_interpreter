@@ -3,7 +3,7 @@ use log::error;
 use crate::{
     common::{Error, string_token_to_literal},
     str_reader::StrReader,
-    token::{Literal, Token, TokenKind},
+    token::{Token, TokenKind},
 };
 
 pub(crate) struct Scanner<'a> {
@@ -72,11 +72,8 @@ impl<'a> Scanner<'a> {
                     }
                     '"' => {
                         if let Some(s) = self.reader.pop_until(1, |c| c == '"') {
-                            tokens.push(Token::new_with_literal(
-                                TokenKind::String,
-                                s,
-                                Literal::Str(string_token_to_literal(s)),
-                            ));
+                            tokens
+                                .push(Token::new(TokenKind::String(string_token_to_literal(s)), s));
                         } else {
                             error!(
                                 "Invalid string at line {} pos {}",
@@ -118,11 +115,7 @@ impl<'a> Scanner<'a> {
                     '0'..='9' => {
                         let raw = self.reader.pop_while(|c| c.is_ascii_digit() || c == '.');
                         match raw.parse::<f64>() {
-                            Ok(v) => tokens.push(Token::new_with_literal(
-                                TokenKind::Number,
-                                raw,
-                                Literal::Num(v),
-                            )),
+                            Ok(v) => tokens.push(Token::new(TokenKind::Number(v), raw)),
                             Err(err) => {
                                 error!(
                                     "Invalid number format <{}> at line {} pos {} (error: {})",
@@ -202,7 +195,7 @@ mod test {
             vec![
                 TokenKind::Identifier,
                 TokenKind::Equal,
-                TokenKind::String,
+                TokenKind::String("abc".into()),
                 TokenKind::Eof
             ],
             tokenize("x = \"abc\"")
@@ -227,11 +220,11 @@ mod test {
     fn test_numbers() {
         assert_eq!(
             vec![
-                TokenKind::Number,
-                TokenKind::Number,
+                TokenKind::Number(12.0),
+                TokenKind::Number(12.34),
                 TokenKind::Dot,
-                TokenKind::Number,
-                TokenKind::Number,
+                TokenKind::Number(12.0),
+                TokenKind::Number(12.0),
                 TokenKind::Eof
             ],
             tokenize("12 12.34 .12 12.")
@@ -256,7 +249,7 @@ mod test {
             .scan()
             .unwrap()
             .iter()
-            .map(|token| token.kind)
+            .map(|token| token.kind.clone())
             .collect()
     }
 }

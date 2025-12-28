@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) enum TokenKind {
     Identifier,
     And,
@@ -62,7 +62,7 @@ impl TokenKind {
             Self::True => "TRUE",
             Self::Var => "VAR",
             Self::While => "WHILE",
-            Self::Number => "NUMBER",
+            Self::Number(_) => "NUMBER",
             Self::Dot => "DOT",
             Self::LeftParen => "LEFT_PAREN",
             Self::RightParen => "RIGHT_PAREN",
@@ -82,7 +82,7 @@ impl TokenKind {
             Self::Less => "LESS",
             Self::Greater => "GREATER",
             Self::Slash => "SLASH",
-            Self::String => "STRING",
+            Self::String(_) => "STRING",
             Self::Print => "PRINT",
             Self::Eof => "EOF",
             // --
@@ -123,15 +123,20 @@ impl<'a> Token<'a> {
             TokenKind::UnterminatedStringError(line) => {
                 eprintln!("[line {}] Error: Unterminated string.", line + 1,)
             }
-            _ => println!(
-                "{} {} {}",
-                self.kind.to_upper_snake_case(),
-                self.lexeme,
-                self.literal
-                    .as_ref()
-                    .map(|v| v.to_string_short())
-                    .unwrap_or("null".into())
-            ),
+            _ => {
+                let literal = match &self.kind {
+                    TokenKind::String(s) => s,
+                    TokenKind::Number(n) => &format!("{:?}", n),
+                    _ => &String::from("null"),
+                };
+
+                println!(
+                    "{} {} {}",
+                    self.kind.to_upper_snake_case(),
+                    self.lexeme,
+                    literal,
+                );
+            }
         }
     }
 }
