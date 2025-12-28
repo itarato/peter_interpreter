@@ -31,6 +31,7 @@ pub(crate) enum BinaryOp {
     Greater,
     GreaterEqual,
     EqualEqual,
+    BangEqual,
 }
 
 impl BinaryOp {
@@ -47,6 +48,7 @@ impl BinaryOp {
             TokenKind::Greater => Some(Self::Greater),
             TokenKind::GreaterEqual => Some(Self::GreaterEqual),
             TokenKind::EqualEqual => Some(Self::EqualEqual),
+            TokenKind::BangEqual => Some(Self::BangEqual),
             _ => None,
         }
     }
@@ -64,6 +66,7 @@ impl BinaryOp {
             Self::Greater => ">".into(),
             Self::GreaterEqual => ">=".into(),
             Self::EqualEqual => "==".into(),
+            Self::BangEqual => "!=".into(),
         }
     }
 
@@ -80,6 +83,7 @@ impl BinaryOp {
             Self::Greater => 9,
             Self::GreaterEqual => 9,
             Self::EqualEqual => 9,
+            Self::BangEqual => 9,
 
             Self::And => 4,
 
