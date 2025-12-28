@@ -56,7 +56,8 @@ impl<'a> Parser<'a> {
                             op,
                             lhs_expr: Box::new(expr),
                             rhs_expr: Box::new(rhs),
-                        };
+                        }
+                        .ensure_precedence();
                         // TODO: Precedence.
                     }
                     None => return Ok(expr),
@@ -174,6 +175,15 @@ mod test {
         assert_eq!(
             "(+ (+ 1.0 2.0) (- 3.0))".to_string(),
             parse("1 + 2 + -3").dump()
+        );
+    }
+
+    #[test]
+    fn test_precedence() {
+        assert_eq!("(+ 1.0 (* 2.0 3.0))".to_string(), parse("1 + 2 * 3").dump());
+        assert_eq!(
+            "(== 1.0 (+ 2.0 (* 3.0 4.0)))".to_string(),
+            parse("1 == 2 + 3 * 4").dump()
         );
     }
 

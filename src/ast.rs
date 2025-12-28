@@ -66,6 +66,26 @@ impl BinaryOp {
             Self::EqualEqual => "==".into(),
         }
     }
+
+    fn precedence(&self) -> u8 {
+        match self {
+            Self::Star => 12,
+            Self::Slash => 12,
+
+            Self::Minus => 11,
+            Self::Plus => 11,
+
+            Self::Less => 9,
+            Self::LessEqual => 9,
+            Self::Greater => 9,
+            Self::GreaterEqual => 9,
+            Self::EqualEqual => 9,
+
+            Self::And => 4,
+
+            Self::Or => 3,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -132,6 +152,55 @@ impl AstExpression {
                 rhs_expr,
             } => format!("({} {} {})", op.dump(), lhs_expr.dump(), rhs_expr.dump()),
             Self::Group { expr } => format!("(group {})", expr.dump()),
+        }
+    }
+
+    pub(crate) fn ensure_precedence(self) -> Self {
+        match self {
+            Self::Binary {
+                op: rhs_op,
+                lhs_expr,
+                rhs_expr: rhs_rhs_expr,
+            } => match *lhs_expr {
+                Self::Binary {
+                    op: lhs_op,
+                    lhs_expr: lhs_lhs_expr,
+                    rhs_expr: lhs_rhs_expr,
+                } => {
+                    if lhs_op.precedence() < rhs_op.precedence() {
+                        AstExpression::Binary {
+                            op: lhs_op,
+                            lhs_expr: lhs_lhs_expr,
+                            rhs_expr: Box::new(
+                                AstExpression::Binary {
+                                    op: rhs_op,
+                                    lhs_expr: lhs_rhs_expr,
+                                    rhs_expr: rhs_rhs_expr,
+                                }
+                                .ensure_precedence(),
+                            ),
+                        }
+                    } else {
+                        AstExpression::Binary {
+                            // Same.
+                            op: rhs_op,
+                            lhs_expr: Box::new(Self::Binary {
+                                op: lhs_op,
+                                lhs_expr: lhs_lhs_expr,
+                                rhs_expr: lhs_rhs_expr,
+                            }),
+                            rhs_expr: rhs_rhs_expr,
+                        }
+                    }
+                }
+                _ => AstExpression::Binary {
+                    // Same.
+                    op: rhs_op,
+                    lhs_expr,
+                    rhs_expr: rhs_rhs_expr,
+                },
+            },
+            _ => self, // Same
         }
     }
 }
