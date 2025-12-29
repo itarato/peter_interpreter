@@ -214,7 +214,81 @@ impl AstExpression {
                 op,
                 lhs_expr,
                 rhs_expr,
-            } => unimplemented!(),
+            } => {
+                let lhs_v = lhs_expr.eval(vm)?;
+                let rhs_v = rhs_expr.eval(vm)?;
+
+                match (lhs_v, rhs_v, op) {
+                    (AstValue::Boolean(lhs), AstValue::Boolean(rhs), BinaryOp::And) => {
+                        Ok(AstValue::Boolean(lhs && rhs))
+                    }
+                    (AstValue::Boolean(lhs), AstValue::Boolean(rhs), BinaryOp::Or) => {
+                        Ok(AstValue::Boolean(lhs || rhs))
+                    }
+                    (AstValue::Boolean(lhs), AstValue::Boolean(rhs), BinaryOp::EqualEqual) => {
+                        Ok(AstValue::Boolean(lhs == rhs))
+                    }
+                    (AstValue::Boolean(lhs), AstValue::Boolean(rhs), BinaryOp::BangEqual) => {
+                        Ok(AstValue::Boolean(lhs != rhs))
+                    }
+
+                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Plus) => {
+                        Ok(AstValue::Number(lhs + rhs))
+                    }
+                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Minus) => {
+                        Ok(AstValue::Number(lhs - rhs))
+                    }
+                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Star) => {
+                        Ok(AstValue::Number(lhs * rhs))
+                    }
+                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Slash) => {
+                        Ok(AstValue::Number(lhs / rhs))
+                    }
+                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::EqualEqual) => {
+                        Ok(AstValue::Boolean(lhs == rhs))
+                    }
+                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::BangEqual) => {
+                        Ok(AstValue::Boolean(lhs != rhs))
+                    }
+                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Less) => {
+                        Ok(AstValue::Boolean(lhs < rhs))
+                    }
+                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::LessEqual) => {
+                        Ok(AstValue::Boolean(lhs <= rhs))
+                    }
+                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Greater) => {
+                        Ok(AstValue::Boolean(lhs > rhs))
+                    }
+                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::GreaterEqual) => {
+                        Ok(AstValue::Boolean(lhs >= rhs))
+                    }
+
+                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::EqualEqual) => {
+                        Ok(AstValue::Boolean(lhs == rhs))
+                    }
+                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::BangEqual) => {
+                        Ok(AstValue::Boolean(lhs != rhs))
+                    }
+                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::Less) => {
+                        Ok(AstValue::Boolean(lhs < rhs))
+                    }
+                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::LessEqual) => {
+                        Ok(AstValue::Boolean(lhs <= rhs))
+                    }
+                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::Greater) => {
+                        Ok(AstValue::Boolean(lhs > rhs))
+                    }
+                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::GreaterEqual) => {
+                        Ok(AstValue::Boolean(lhs >= rhs))
+                    }
+                    (other_lhs, other_rhs, other_op) => Err(format!(
+                        "Error: unsupported operation {:?} between {:?} and {:?}",
+                        other_op, other_lhs, other_rhs
+                    )
+                    .into()),
+                }
+            }
+
             Self::Unary { op, expr } => match op {
                 UnaryOp::Minus => match expr.eval(vm)? {
                     AstValue::Number(v) => Ok(AstValue::Number(-v)),
@@ -225,7 +299,9 @@ impl AstExpression {
                     other => Err(format!("Error: expected boolean, got: {:?}", other).into()),
                 },
             },
+
             Self::Group { expr } => expr.eval(vm),
+
             Self::Literal { value } => Ok(value.clone()),
         }
     }
