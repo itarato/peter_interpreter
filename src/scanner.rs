@@ -22,58 +22,70 @@ impl<'a> Scanner<'a> {
 
         loop {
             self.reader.drop_while(|c| c.is_whitespace());
+            let line = self.reader.line;
 
             match self.reader.peek1().clone() {
                 Some(c) => match c {
-                    '(' => tokens.push(Token::new(TokenKind::LeftParen, self.reader.pop(1))),
-                    ')' => tokens.push(Token::new(TokenKind::RightParen, self.reader.pop(1))),
-                    '{' => tokens.push(Token::new(TokenKind::LeftBrace, self.reader.pop(1))),
-                    '}' => tokens.push(Token::new(TokenKind::RightBrace, self.reader.pop(1))),
-                    ';' => tokens.push(Token::new(TokenKind::Semicolon, self.reader.pop(1))),
-                    ',' => tokens.push(Token::new(TokenKind::Comma, self.reader.pop(1))),
-                    '+' => tokens.push(Token::new(TokenKind::Plus, self.reader.pop(1))),
-                    '-' => tokens.push(Token::new(TokenKind::Minus, self.reader.pop(1))),
-                    '*' => tokens.push(Token::new(TokenKind::Star, self.reader.pop(1))),
-                    '.' => tokens.push(Token::new(TokenKind::Dot, self.reader.pop(1))),
+                    '(' => tokens.push(Token::new(TokenKind::LeftParen, self.reader.pop(1), line)),
+                    ')' => tokens.push(Token::new(TokenKind::RightParen, self.reader.pop(1), line)),
+                    '{' => tokens.push(Token::new(TokenKind::LeftBrace, self.reader.pop(1), line)),
+                    '}' => tokens.push(Token::new(TokenKind::RightBrace, self.reader.pop(1), line)),
+                    ';' => tokens.push(Token::new(TokenKind::Semicolon, self.reader.pop(1), line)),
+                    ',' => tokens.push(Token::new(TokenKind::Comma, self.reader.pop(1), line)),
+                    '+' => tokens.push(Token::new(TokenKind::Plus, self.reader.pop(1), line)),
+                    '-' => tokens.push(Token::new(TokenKind::Minus, self.reader.pop(1), line)),
+                    '*' => tokens.push(Token::new(TokenKind::Star, self.reader.pop(1), line)),
+                    '.' => tokens.push(Token::new(TokenKind::Dot, self.reader.pop(1), line)),
                     '/' => {
                         if let Some("//") = self.reader.peek(2) {
                             self.reader.drop_while(|c| c != '\n');
                         } else {
-                            tokens.push(Token::new(TokenKind::Slash, self.reader.pop(1)));
+                            tokens.push(Token::new(TokenKind::Slash, self.reader.pop(1), line));
                         }
                     }
                     '!' => {
                         if let Some("!=") = self.reader.peek(2) {
-                            tokens.push(Token::new(TokenKind::BangEqual, self.reader.pop(2)));
+                            tokens.push(Token::new(TokenKind::BangEqual, self.reader.pop(2), line));
                         } else {
-                            tokens.push(Token::new(TokenKind::Bang, self.reader.pop(1)));
+                            tokens.push(Token::new(TokenKind::Bang, self.reader.pop(1), line));
                         }
                     }
                     '=' => {
                         if let Some("==") = self.reader.peek(2) {
-                            tokens.push(Token::new(TokenKind::EqualEqual, self.reader.pop(2)));
+                            tokens.push(Token::new(
+                                TokenKind::EqualEqual,
+                                self.reader.pop(2),
+                                line,
+                            ));
                         } else {
-                            tokens.push(Token::new(TokenKind::Equal, self.reader.pop(1)));
+                            tokens.push(Token::new(TokenKind::Equal, self.reader.pop(1), line));
                         }
                     }
                     '<' => {
                         if let Some("<=") = self.reader.peek(2) {
-                            tokens.push(Token::new(TokenKind::LessEqual, self.reader.pop(2)));
+                            tokens.push(Token::new(TokenKind::LessEqual, self.reader.pop(2), line));
                         } else {
-                            tokens.push(Token::new(TokenKind::Less, self.reader.pop(1)));
+                            tokens.push(Token::new(TokenKind::Less, self.reader.pop(1), line));
                         }
                     }
                     '>' => {
                         if let Some(">=") = self.reader.peek(2) {
-                            tokens.push(Token::new(TokenKind::GreaterEqual, self.reader.pop(2)));
+                            tokens.push(Token::new(
+                                TokenKind::GreaterEqual,
+                                self.reader.pop(2),
+                                line,
+                            ));
                         } else {
-                            tokens.push(Token::new(TokenKind::Greater, self.reader.pop(1)));
+                            tokens.push(Token::new(TokenKind::Greater, self.reader.pop(1), line));
                         }
                     }
                     '"' => {
                         if let Some(s) = self.reader.pop_until(1, |c| c == '"') {
-                            tokens
-                                .push(Token::new(TokenKind::String(string_token_to_literal(s)), s));
+                            tokens.push(Token::new(
+                                TokenKind::String(string_token_to_literal(s)),
+                                s,
+                                line,
+                            ));
                         } else {
                             error!(
                                 "Invalid string at line {} pos {}",
@@ -83,6 +95,7 @@ impl<'a> Scanner<'a> {
                             tokens.push(Token::new(
                                 TokenKind::UnterminatedStringError(self.reader.line),
                                 self.reader.pop(1),
+                                line,
                             ));
                             break;
                         }
@@ -93,29 +106,29 @@ impl<'a> Scanner<'a> {
                             .pop_while(|c| c.is_ascii_alphanumeric() || c == '_');
 
                         match raw {
-                            "and" => tokens.push(Token::new(TokenKind::And, raw)),
-                            "class" => tokens.push(Token::new(TokenKind::Class, raw)),
-                            "else" => tokens.push(Token::new(TokenKind::Else, raw)),
-                            "false" => tokens.push(Token::new(TokenKind::False, raw)),
-                            "for" => tokens.push(Token::new(TokenKind::For, raw)),
-                            "fun" => tokens.push(Token::new(TokenKind::Fun, raw)),
-                            "if" => tokens.push(Token::new(TokenKind::If, raw)),
-                            "nil" => tokens.push(Token::new(TokenKind::Nil, raw)),
-                            "or" => tokens.push(Token::new(TokenKind::Or, raw)),
-                            "return" => tokens.push(Token::new(TokenKind::Return, raw)),
-                            "super" => tokens.push(Token::new(TokenKind::Super, raw)),
-                            "this" => tokens.push(Token::new(TokenKind::This, raw)),
-                            "true" => tokens.push(Token::new(TokenKind::True, raw)),
-                            "var" => tokens.push(Token::new(TokenKind::Var, raw)),
-                            "while" => tokens.push(Token::new(TokenKind::While, raw)),
-                            "print" => tokens.push(Token::new(TokenKind::Print, raw)),
-                            _ => tokens.push(Token::new(TokenKind::Identifier, raw)),
+                            "and" => tokens.push(Token::new(TokenKind::And, raw, line)),
+                            "class" => tokens.push(Token::new(TokenKind::Class, raw, line)),
+                            "else" => tokens.push(Token::new(TokenKind::Else, raw, line)),
+                            "false" => tokens.push(Token::new(TokenKind::False, raw, line)),
+                            "for" => tokens.push(Token::new(TokenKind::For, raw, line)),
+                            "fun" => tokens.push(Token::new(TokenKind::Fun, raw, line)),
+                            "if" => tokens.push(Token::new(TokenKind::If, raw, line)),
+                            "nil" => tokens.push(Token::new(TokenKind::Nil, raw, line)),
+                            "or" => tokens.push(Token::new(TokenKind::Or, raw, line)),
+                            "return" => tokens.push(Token::new(TokenKind::Return, raw, line)),
+                            "super" => tokens.push(Token::new(TokenKind::Super, raw, line)),
+                            "this" => tokens.push(Token::new(TokenKind::This, raw, line)),
+                            "true" => tokens.push(Token::new(TokenKind::True, raw, line)),
+                            "var" => tokens.push(Token::new(TokenKind::Var, raw, line)),
+                            "while" => tokens.push(Token::new(TokenKind::While, raw, line)),
+                            "print" => tokens.push(Token::new(TokenKind::Print, raw, line)),
+                            _ => tokens.push(Token::new(TokenKind::Identifier, raw, line)),
                         }
                     }
                     '0'..='9' => {
                         let raw = self.reader.pop_while(|c| c.is_ascii_digit() || c == '.');
                         match raw.parse::<f64>() {
-                            Ok(v) => tokens.push(Token::new(TokenKind::Number(v), raw)),
+                            Ok(v) => tokens.push(Token::new(TokenKind::Number(v), raw, line)),
                             Err(err) => {
                                 error!(
                                     "Invalid number format <{}> at line {} pos {} (error: {})",
@@ -125,6 +138,7 @@ impl<'a> Scanner<'a> {
                                 tokens.push(Token::new(
                                     TokenKind::UnexpectedCharacterError(self.reader.line),
                                     raw,
+                                    line,
                                 ));
                             }
                         }
@@ -138,6 +152,7 @@ impl<'a> Scanner<'a> {
                         tokens.push(Token::new(
                             TokenKind::UnexpectedCharacterError(self.reader.line),
                             self.reader.pop(1),
+                            line,
                         ));
                     }
                 },
@@ -145,7 +160,11 @@ impl<'a> Scanner<'a> {
             }
         }
 
-        tokens.push(Token::new(crate::token::TokenKind::Eof, ""));
+        tokens.push(Token::new(
+            crate::token::TokenKind::Eof,
+            "",
+            self.reader.line,
+        ));
 
         Ok(tokens)
     }

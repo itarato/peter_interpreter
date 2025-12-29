@@ -51,13 +51,27 @@ fn main() {
 
     match program_args.command.as_str() {
         "tokenize" => tokens.iter().for_each(|token| token.dump_short()),
-        "parse" => match parser::Parser::new(&tokens[..]).parse() {
-            Ok(ast_stmts) => println!("{}", ast_stmts.dump()),
-            Err(err) => {
-                error!("Error while parsing: {:?}", err);
+        "parse" => {
+            if exit_code != EXIT_CODE_SUCCESS {
                 std::process::exit(EXIT_CODE_LEXICAL_ERROR);
             }
-        },
+
+            match parser::Parser::new(&tokens[..]).parse() {
+                Ok(ast_stmts) => println!("{}", ast_stmts.dump()),
+                Err(err) => {
+                    error!("Error while parsing: {:?}", err);
+
+                    eprintln!(
+                        "[line {}] Error at '{}': {}",
+                        err.token.map(|t| t.line + 1).unwrap_or(1),
+                        err.token.map(|t| t.lexeme).unwrap_or(""),
+                        err.msg
+                    );
+
+                    std::process::exit(EXIT_CODE_LEXICAL_ERROR);
+                }
+            }
+        }
         other => {
             error!("Unknown command: {}", other);
         }

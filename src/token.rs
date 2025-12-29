@@ -96,11 +96,12 @@ impl TokenKind {
 pub(crate) struct Token<'a> {
     pub(crate) kind: TokenKind,
     pub(crate) lexeme: &'a str,
+    pub(crate) line: usize,
 }
 
 impl<'a> Token<'a> {
-    pub(crate) fn new(kind: TokenKind, lexeme: &'a str) -> Self {
-        Self { kind, lexeme }
+    pub(crate) fn new(kind: TokenKind, lexeme: &'a str, line: usize) -> Self {
+        Self { kind, lexeme, line }
     }
 
     pub(crate) fn is_error(&self) -> bool {

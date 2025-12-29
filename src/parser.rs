@@ -1,8 +1,14 @@
 use crate::{
     ast::{AstExpression, AstStatement, AstStatementList, AstValue, BinaryOp, UnaryOp},
-    common::{Error, Reader},
+    common::Reader,
     token::{Token, TokenKind},
 };
+
+#[derive(Debug)]
+pub(crate) struct ParsingError<'a> {
+    pub(crate) token: Option<&'a Token<'a>>,
+    pub(crate) msg: String,
+}
 
 pub(crate) struct Parser<'a> {
     reader: Reader<'a, Token<'a>>,
@@ -15,7 +21,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn parse(mut self) -> Result<AstStatementList, Error> {
+    pub(crate) fn parse(mut self) -> Result<AstStatementList, ParsingError<'a>> {
         let mut statements = vec![];
 
         loop {
@@ -32,7 +38,12 @@ impl<'a> Parser<'a> {
 
                     TokenKind::Eof => break,
 
-                    _ => unimplemented!("Token {:?} not implemented yet for parsing", token),
+                    _ => {
+                        return Err(ParsingError {
+                            token: Some(token),
+                            msg: "Unrecognized token.".into(),
+                        });
+                    }
                 },
                 None => break,
             };
@@ -43,7 +54,7 @@ impl<'a> Parser<'a> {
         Ok(AstStatementList(statements))
     }
 
-    fn parse_expression(&mut self) -> Result<AstExpression, Error> {
+    fn parse_expression(&mut self) -> Result<AstExpression, ParsingError<'a>> {
         let mut expr: AstExpression = self.parse_single_expression_unit()?;
 
         loop {
@@ -67,8 +78,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_single_expression_unit(&mut self) -> Result<AstExpression, Error> {
-        match &self.reader.pop().unwrap().kind {
+    fn parse_single_expression_unit(&mut self) -> Result<AstExpression, ParsingError<'a>> {
+        let token = self.reader.pop().unwrap();
+        match &token.kind {
             TokenKind::LeftParen => {
                 let expr = self.parse_expression()?;
                 self.pop_and_assert(&TokenKind::RightParen)?;
@@ -107,27 +119,29 @@ impl<'a> Parser<'a> {
                 value: AstValue::Nil,
             }),
 
-            other => unimplemented!(
-                "Token {:?} not implemented yet for expression parsing",
-                other
-            ),
+            _ => Err(ParsingError {
+                token: Some(token),
+                msg: "Expect expression.".into(),
+            }),
         }
     }
 
-    fn pop_and_assert(&mut self, kind_expected: &TokenKind) -> Result<(), Error> {
+    fn pop_and_assert(&mut self, kind_expected: &TokenKind) -> Result<(), ParsingError<'a>> {
         match self.reader.pop() {
             Some(token) => {
                 if &token.kind == kind_expected {
                     Ok(())
                 } else {
-                    Err(format!(
-                        "Unexpected token. Expected: {:?}. Actual: {:?}.",
-                        kind_expected, token
-                    )
-                    .into())
+                    Err(ParsingError {
+                        token: Some(token),
+                        msg: format!("Expected token: {:?}", kind_expected).into(),
+                    })
                 }
             }
-            None => Err(format!("Not enoughg tokens. Expected: {:?}.", kind_expected).into()),
+            None => Err(ParsingError {
+                token: None,
+                msg: "No more tokens.".into(),
+            }),
         }
     }
 }
