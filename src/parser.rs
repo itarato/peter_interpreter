@@ -74,9 +74,19 @@ impl<'a> Parser<'a> {
                         .pop_and_assert(&TokenKind::Identifier)?
                         .lexeme
                         .to_string();
-                    self.pop_and_assert(&TokenKind::Equal)?;
-                    let expr = self.parse_expression()?;
-                    self.pop_and_assert(&TokenKind::Semicolon)?;
+
+                    let expr =
+                        if let Some(&TokenKind::Semicolon) = self.reader.peek().map(|t| &t.kind) {
+                            self.reader.pop(); // semicolon
+                            AstExpression::Literal {
+                                value: AstValue::Nil { line: token.line },
+                            }
+                        } else {
+                            self.pop_and_assert(&TokenKind::Equal)?;
+                            let expr = self.parse_expression()?;
+                            self.pop_and_assert(&TokenKind::Semicolon)?;
+                            expr
+                        };
 
                     Ok(AstStatement::VarAssignment(name, expr))
                 }
@@ -181,7 +191,10 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn pop_and_assert(&mut self, kind_expected: &TokenKind) -> Result<&Token, ParsingError<'a>> {
+    fn pop_and_assert(
+        &mut self,
+        kind_expected: &TokenKind,
+    ) -> Result<&'a Token<'a>, ParsingError<'a>> {
         match self.reader.pop() {
             Some(token) => {
                 if &token.kind == kind_expected {
