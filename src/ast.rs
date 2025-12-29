@@ -109,37 +109,46 @@ impl UnaryOp {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum AstValue {
-    Str(String),
-    Number(f64),
-    Boolean(bool),
-    Nil,
+    Str { value: String, line: usize },
+    Number { value: f64, line: usize },
+    Boolean { value: bool, line: usize },
+    Nil { line: usize },
 }
 
 impl AstValue {
     fn dump(&self) -> String {
         match self {
-            Self::Str(s) => s.clone(),
-            Self::Number(v) => format!("{:?}", v),
-            Self::Boolean(v) => format!("{:?}", v),
-            Self::Nil => String::from("nil"),
+            Self::Str { value, line } => value.clone(),
+            Self::Number { value, line } => format!("{:?}", value),
+            Self::Boolean { value, line } => format!("{:?}", value),
+            Self::Nil { line } => String::from("nil"),
         }
     }
 
     pub(crate) fn dump_short(&self) -> String {
         match self {
-            Self::Str(s) => s.clone(),
-            Self::Number(v) => format!("{}", v),
-            Self::Boolean(v) => format!("{}", v),
-            Self::Nil => String::from("nil"),
+            Self::Str { value, line } => value.clone(),
+            Self::Number { value, line } => format!("{}", value),
+            Self::Boolean { value, line } => format!("{}", value),
+            Self::Nil { line } => String::from("nil"),
         }
     }
 
     fn truthy_value(&self) -> bool {
         match self {
-            Self::Str(_) => true,
-            Self::Boolean(v) => *v,
-            Self::Nil => false,
-            Self::Number(v) => *v != 0.0,
+            Self::Str { value, line } => true,
+            Self::Boolean { value, line } => *value,
+            Self::Nil { line } => false,
+            Self::Number { value, line } => *value != 0.0,
+        }
+    }
+
+    pub(crate) fn line(&self) -> usize {
+        match self {
+            Self::Boolean { value, line } => *line,
+            Self::Nil { line } => *line,
+            Self::Number { value, line } => *line,
+            Self::Str { value, line } => *line,
         }
     }
 }
@@ -237,72 +246,168 @@ impl AstExpression {
                 let rhs_v = rhs_expr.eval(vm)?;
 
                 match (lhs_v, rhs_v, op) {
-                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Plus) => {
-                        Ok(AstValue::Number(lhs + rhs))
-                    }
-                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Minus) => {
-                        Ok(AstValue::Number(lhs - rhs))
-                    }
-                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Star) => {
-                        Ok(AstValue::Number(lhs * rhs))
-                    }
-                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Slash) => {
-                        Ok(AstValue::Number(lhs / rhs))
-                    }
-                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::EqualEqual) => {
-                        Ok(AstValue::Boolean(lhs == rhs))
-                    }
-                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::BangEqual) => {
-                        Ok(AstValue::Boolean(lhs != rhs))
-                    }
-                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Less) => {
-                        Ok(AstValue::Boolean(lhs < rhs))
-                    }
-                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::LessEqual) => {
-                        Ok(AstValue::Boolean(lhs <= rhs))
-                    }
-                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Greater) => {
-                        Ok(AstValue::Boolean(lhs > rhs))
-                    }
-                    (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::GreaterEqual) => {
-                        Ok(AstValue::Boolean(lhs >= rhs))
-                    }
+                    (
+                        AstValue::Number { value: lhs, line },
+                        AstValue::Number { value: rhs, .. },
+                        BinaryOp::Plus,
+                    ) => Ok(AstValue::Number {
+                        value: lhs + rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Number { value: lhs, line },
+                        AstValue::Number { value: rhs, .. },
+                        BinaryOp::Minus,
+                    ) => Ok(AstValue::Number {
+                        value: lhs - rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Number { value: lhs, line },
+                        AstValue::Number { value: rhs, .. },
+                        BinaryOp::Star,
+                    ) => Ok(AstValue::Number {
+                        value: lhs * rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Number { value: lhs, line },
+                        AstValue::Number { value: rhs, .. },
+                        BinaryOp::Slash,
+                    ) => Ok(AstValue::Number {
+                        value: lhs / rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Number { value: lhs, line },
+                        AstValue::Number { value: rhs, .. },
+                        BinaryOp::EqualEqual,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs == rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Number { value: lhs, line },
+                        AstValue::Number { value: rhs, .. },
+                        BinaryOp::BangEqual,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs != rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Number { value: lhs, line },
+                        AstValue::Number { value: rhs, .. },
+                        BinaryOp::Less,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs < rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Number { value: lhs, line },
+                        AstValue::Number { value: rhs, .. },
+                        BinaryOp::LessEqual,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs <= rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Number { value: lhs, line },
+                        AstValue::Number { value: rhs, .. },
+                        BinaryOp::Greater,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs > rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Number { value: lhs, line },
+                        AstValue::Number { value: rhs, .. },
+                        BinaryOp::GreaterEqual,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs >= rhs,
+                        line,
+                    }),
 
-                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::EqualEqual) => {
-                        Ok(AstValue::Boolean(lhs == rhs))
-                    }
-                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::BangEqual) => {
-                        Ok(AstValue::Boolean(lhs != rhs))
-                    }
-                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::Less) => {
-                        Ok(AstValue::Boolean(lhs < rhs))
-                    }
-                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::LessEqual) => {
-                        Ok(AstValue::Boolean(lhs <= rhs))
-                    }
-                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::Greater) => {
-                        Ok(AstValue::Boolean(lhs > rhs))
-                    }
-                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::GreaterEqual) => {
-                        Ok(AstValue::Boolean(lhs >= rhs))
-                    }
-                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::Plus) => {
-                        Ok(AstValue::Str(lhs + &rhs))
-                    }
+                    (
+                        AstValue::Str { value: lhs, line },
+                        AstValue::Str { value: rhs, .. },
+                        BinaryOp::EqualEqual,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs == rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Str { value: lhs, line },
+                        AstValue::Str { value: rhs, .. },
+                        BinaryOp::BangEqual,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs != rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Str { value: lhs, line },
+                        AstValue::Str { value: rhs, .. },
+                        BinaryOp::Less,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs < rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Str { value: lhs, line },
+                        AstValue::Str { value: rhs, .. },
+                        BinaryOp::LessEqual,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs <= rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Str { value: lhs, line },
+                        AstValue::Str { value: rhs, .. },
+                        BinaryOp::Greater,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs > rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Str { value: lhs, line },
+                        AstValue::Str { value: rhs, .. },
+                        BinaryOp::GreaterEqual,
+                    ) => Ok(AstValue::Boolean {
+                        value: lhs >= rhs,
+                        line,
+                    }),
+                    (
+                        AstValue::Str { value: lhs, line },
+                        AstValue::Str { value: rhs, .. },
+                        BinaryOp::Plus,
+                    ) => Ok(AstValue::Str {
+                        value: lhs + &rhs,
+                        line,
+                    }),
 
-                    (lhs, rhs, BinaryOp::And) => {
-                        Ok(AstValue::Boolean(lhs.truthy_value() && rhs.truthy_value()))
-                    }
-                    (lhs, rhs, BinaryOp::Or) => {
-                        Ok(AstValue::Boolean(lhs.truthy_value() || rhs.truthy_value()))
-                    }
+                    (lhs, rhs, BinaryOp::And) => Ok(AstValue::Boolean {
+                        value: lhs.truthy_value() && rhs.truthy_value(),
+                        line: lhs.line(),
+                    }),
+                    (lhs, rhs, BinaryOp::Or) => Ok(AstValue::Boolean {
+                        value: lhs.truthy_value() || rhs.truthy_value(),
+                        line: lhs.line(),
+                    }),
 
-                    (lhs, rhs, BinaryOp::EqualEqual) => Ok(AstValue::Boolean(lhs == rhs)),
-                    (lhs, rhs, BinaryOp::BangEqual) => Ok(AstValue::Boolean(lhs != rhs)),
+                    (lhs, rhs, BinaryOp::EqualEqual) => Ok(AstValue::Boolean {
+                        value: lhs == rhs,
+                        line: lhs.line(),
+                    }),
+                    (lhs, rhs, BinaryOp::BangEqual) => Ok(AstValue::Boolean {
+                        value: lhs != rhs,
+                        line: lhs.line(),
+                    }),
 
                     (other_lhs, other_rhs, other_op) => Err(format!(
-                        "Error: unsupported operation {:?} between {:?} and {:?}",
-                        other_op, other_lhs, other_rhs
+                        "[line {}] Error: unsupported operation {:?} between {:?} and {:?}",
+                        other_lhs.line() + 1,
+                        other_op,
+                        other_lhs,
+                        other_rhs
                     )
                     .into()),
                 }
@@ -310,10 +415,19 @@ impl AstExpression {
 
             Self::Unary { op, expr } => match op {
                 UnaryOp::Minus => match expr.eval(vm)? {
-                    AstValue::Number(v) => Ok(AstValue::Number(-v)),
+                    AstValue::Number { value, line } => Ok(AstValue::Number {
+                        value: -value,
+                        line,
+                    }),
                     other => Err(format!("Error: expected number, got: {:?}", other).into()),
                 },
-                UnaryOp::Bang => Ok(AstValue::Boolean(!expr.eval(vm)?.truthy_value())),
+                UnaryOp::Bang => {
+                    let value = expr.eval(vm)?;
+                    Ok(AstValue::Boolean {
+                        value: !value.truthy_value(),
+                        line: value.line(),
+                    })
+                }
             },
 
             Self::Group { expr } => expr.eval(vm),

@@ -3,7 +3,7 @@ use log::{error, info};
 use std::fs;
 
 use crate::{
-    common::{EXIT_CODE_LEXICAL_ERROR, EXIT_CODE_SUCCESS},
+    common::{EXIT_CODE_LEXICAL_ERROR, EXIT_CODE_RUNTIME_ERROR, EXIT_CODE_SUCCESS},
     interpreter::Interpreter,
     scanner::Scanner,
 };
@@ -98,7 +98,7 @@ fn main() {
                 Err(err) => {
                     error!("Error while evaluating: {:?}", err);
                     eprintln!("{:?}", err);
-                    std::process::exit(EXIT_CODE_LEXICAL_ERROR);
+                    std::process::exit(EXIT_CODE_RUNTIME_ERROR);
                 }
             }
         }

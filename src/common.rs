@@ -1,5 +1,6 @@
 pub(crate) const EXIT_CODE_SUCCESS: i32 = 0;
 pub(crate) const EXIT_CODE_LEXICAL_ERROR: i32 = 65;
+pub(crate) const EXIT_CODE_RUNTIME_ERROR: i32 = 70;
 
 pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
 

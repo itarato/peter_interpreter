@@ -104,19 +104,31 @@ impl<'a> Parser<'a> {
                 })
             }
             TokenKind::String(s) => Ok(AstExpression::Literal {
-                value: AstValue::Str(s.clone()),
+                value: AstValue::Str {
+                    value: s.clone(),
+                    line: token.line,
+                },
             }),
             TokenKind::Number(n) => Ok(AstExpression::Literal {
-                value: AstValue::Number(*n),
+                value: AstValue::Number {
+                    value: *n,
+                    line: token.line,
+                },
             }),
             TokenKind::True => Ok(AstExpression::Literal {
-                value: AstValue::Boolean(true),
+                value: AstValue::Boolean {
+                    value: true,
+                    line: token.line,
+                },
             }),
             TokenKind::False => Ok(AstExpression::Literal {
-                value: AstValue::Boolean(false),
+                value: AstValue::Boolean {
+                    value: false,
+                    line: token.line,
+                },
             }),
             TokenKind::Nil => Ok(AstExpression::Literal {
-                value: AstValue::Nil,
+                value: AstValue::Nil { line: token.line },
             }),
 
             _ => Err(ParsingError {
