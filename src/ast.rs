@@ -286,6 +286,9 @@ impl AstExpression {
                     (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::GreaterEqual) => {
                         Ok(AstValue::Boolean(lhs >= rhs))
                     }
+                    (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::Plus) => {
+                        Ok(AstValue::Str(lhs + &rhs))
+                    }
 
                     (lhs, rhs, BinaryOp::And) => {
                         Ok(AstValue::Boolean(lhs.truthy_value() && rhs.truthy_value()))
