@@ -54,7 +54,8 @@ impl<'a> Parser<'a> {
                 | TokenKind::Nil
                 | TokenKind::Minus
                 | TokenKind::Bang
-                | TokenKind::LeftParen => {
+                | TokenKind::LeftParen
+                | TokenKind::Identifier => {
                     let expr = self.parse_expression()?;
                     self.pop_and_assert(&TokenKind::Semicolon)?;
                     Ok(AstStatement::Expr(expr))
@@ -65,6 +66,19 @@ impl<'a> Parser<'a> {
                     let expr = self.parse_expression()?;
                     self.pop_and_assert(&TokenKind::Semicolon)?;
                     Ok(AstStatement::Print(expr))
+                }
+
+                TokenKind::Var => {
+                    self.reader.pop(); // var
+                    let name = self
+                        .pop_and_assert(&TokenKind::Identifier)?
+                        .lexeme
+                        .to_string();
+                    self.pop_and_assert(&TokenKind::Equal)?;
+                    let expr = self.parse_expression()?;
+                    self.pop_and_assert(&TokenKind::Semicolon)?;
+
+                    Ok(AstStatement::VarAssignment(name, expr))
                 }
 
                 _ => {
@@ -156,6 +170,9 @@ impl<'a> Parser<'a> {
             TokenKind::Nil => Ok(AstExpression::Literal {
                 value: AstValue::Nil { line: token.line },
             }),
+            TokenKind::Identifier => Ok(AstExpression::Identifier {
+                name: token.lexeme.to_string(),
+            }),
 
             _ => Err(ParsingError {
                 token: Some(token),
@@ -164,11 +181,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn pop_and_assert(&mut self, kind_expected: &TokenKind) -> Result<(), ParsingError<'a>> {
+    fn pop_and_assert(&mut self, kind_expected: &TokenKind) -> Result<&Token, ParsingError<'a>> {
         match self.reader.pop() {
             Some(token) => {
                 if &token.kind == kind_expected {
-                    Ok(())
+                    Ok(token)
                 } else {
                     Err(ParsingError {
                         token: Some(token),

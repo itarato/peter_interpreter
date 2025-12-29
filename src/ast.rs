@@ -155,6 +155,9 @@ impl AstValue {
 
 #[derive(Debug)]
 pub(crate) enum AstExpression {
+    Identifier {
+        name: String,
+    },
     Literal {
         value: AstValue,
     },
@@ -183,6 +186,7 @@ impl AstExpression {
                 rhs_expr,
             } => format!("({} {} {})", op.dump(), lhs_expr.dump(), rhs_expr.dump()),
             Self::Group { expr } => format!("(group {})", expr.dump()),
+            Self::Identifier { name } => format!("{}", name),
         }
     }
 
@@ -433,6 +437,11 @@ impl AstExpression {
             Self::Group { expr } => expr.eval(vm),
 
             Self::Literal { value } => Ok(value.clone()),
+
+            Self::Identifier { name } => match vm.load_variable(name) {
+                Some(value) => Ok(value.clone()),
+                None => Err(format!("Error: missing variable declaration for <{}>", name).into()),
+            },
         }
     }
 }
@@ -441,6 +450,7 @@ impl AstExpression {
 pub(crate) enum AstStatement {
     Expr(AstExpression),
     Print(AstExpression),
+    VarAssignment(String, AstExpression),
 }
 
 impl AstStatement {
@@ -448,6 +458,7 @@ impl AstStatement {
         match self {
             Self::Expr(expr) => expr.dump(),
             Self::Print(expr) => format!("print {}", expr.dump()),
+            Self::VarAssignment(name, expr) => format!("var {} = {}", name, expr.dump()),
         }
     }
 
@@ -457,6 +468,11 @@ impl AstStatement {
             Self::Print(expr) => {
                 let value = expr.eval(vm)?;
                 println!("{}", value.dump_short());
+                Ok(None)
+            }
+            Self::VarAssignment(name, expr) => {
+                let value = expr.eval(vm)?;
+                vm.store_variable(name.clone(), value);
                 Ok(None)
             }
         }
