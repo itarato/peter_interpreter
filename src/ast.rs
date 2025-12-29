@@ -440,18 +440,25 @@ impl AstExpression {
 #[derive(Debug)]
 pub(crate) enum AstStatement {
     Expr(AstExpression),
+    Print(AstExpression),
 }
 
 impl AstStatement {
     fn dump(&self) -> String {
         match self {
             Self::Expr(expr) => expr.dump(),
+            Self::Print(expr) => format!("print {}", expr.dump()),
         }
     }
 
     fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
         match self {
             Self::Expr(expr) => expr.eval(vm).map(|v| Some(v)),
+            Self::Print(expr) => {
+                let value = expr.eval(vm)?;
+                println!("{}", value.dump_short());
+                Ok(None)
+            }
         }
     }
 }

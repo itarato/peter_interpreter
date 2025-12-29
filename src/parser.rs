@@ -56,10 +56,15 @@ impl<'a> Parser<'a> {
                 | TokenKind::Bang
                 | TokenKind::LeftParen => {
                     let expr = self.parse_expression()?;
-
                     self.pop_and_assert(&TokenKind::Semicolon)?;
-
                     Ok(AstStatement::Expr(expr))
+                }
+
+                TokenKind::Print => {
+                    self.reader.pop(); // print
+                    let expr = self.parse_expression()?;
+                    self.pop_and_assert(&TokenKind::Semicolon)?;
+                    Ok(AstStatement::Print(expr))
                 }
 
                 _ => {
@@ -181,11 +186,7 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        ast::{AstExpression, AstStatementList},
-        parser::Parser,
-        scanner::Scanner,
-    };
+    use crate::{ast::AstExpression, parser::Parser, scanner::Scanner};
 
     #[test]
     fn test_empty() {

@@ -105,6 +105,30 @@ fn main() {
                 }
             }
         }
+        "run" => {
+            if exit_code != EXIT_CODE_SUCCESS {
+                std::process::exit(EXIT_CODE_LEXICAL_ERROR);
+            }
+
+            let program = match parser::Parser::new(&tokens[..]).parse_program() {
+                Ok(statements) => statements,
+                Err(err) => {
+                    error!("Error while parsing: {:?}", err);
+                    std::process::exit(EXIT_CODE_LEXICAL_ERROR);
+                }
+            };
+
+            match Interpreter::new(program).evaluate() {
+                Ok(maybe_value) => {
+                    info!("Successful evaluation  Result: {:?}", maybe_value);
+                }
+                Err(err) => {
+                    error!("Error while evaluating: {:?}", err);
+                    eprintln!("{:?}", err);
+                    std::process::exit(EXIT_CODE_RUNTIME_ERROR);
+                }
+            }
+        }
         other => {
             error!("Unknown command: {}", other);
         }
