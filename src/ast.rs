@@ -454,13 +454,13 @@ pub(crate) enum AstStatement {
 }
 
 impl AstStatement {
-    fn dump(&self) -> String {
-        match self {
-            Self::Expr(expr) => expr.dump(),
-            Self::Print(expr) => format!("print {}", expr.dump()),
-            Self::VarAssignment(name, expr) => format!("var {} = {}", name, expr.dump()),
-        }
-    }
+    // fn dump(&self) -> String {
+    //     match self {
+    //         Self::Expr(expr) => expr.dump(),
+    //         Self::Print(expr) => format!("print {}", expr.dump()),
+    //         Self::VarAssignment(name, expr) => format!("var {} = {}", name, expr.dump()),
+    //     }
+    // }
 
     fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
         match self {
@@ -483,13 +483,13 @@ impl AstStatement {
 pub(crate) struct AstStatementList(pub(crate) Vec<AstStatement>);
 
 impl AstStatementList {
-    pub(crate) fn dump(&self) -> String {
-        self.0
-            .iter()
-            .map(|stmt| stmt.dump())
-            .collect::<Vec<_>>()
-            .join("")
-    }
+    // pub(crate) fn dump(&self) -> String {
+    //     self.0
+    //         .iter()
+    //         .map(|stmt| stmt.dump())
+    //         .collect::<Vec<_>>()
+    //         .join("")
+    // }
 
     pub(crate) fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
         let mut last_result = None;
