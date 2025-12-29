@@ -116,11 +116,20 @@ pub(crate) enum AstValue {
 }
 
 impl AstValue {
-    pub(crate) fn dump(&self) -> String {
+    fn dump(&self) -> String {
         match self {
             Self::Str(s) => s.clone(),
             Self::Number(v) => format!("{:?}", v),
             Self::Boolean(v) => format!("{:?}", v),
+            Self::Nil => String::from("nil"),
+        }
+    }
+
+    pub(crate) fn dump_short(&self) -> String {
+        match self {
+            Self::Str(s) => s.clone(),
+            Self::Number(v) => format!("{}", v),
+            Self::Boolean(v) => format!("{}", v),
             Self::Nil => String::from("nil"),
         }
     }

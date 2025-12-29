@@ -92,7 +92,7 @@ fn main() {
                 Ok(maybe_value) => {
                     info!("Successful evaluation  Result: {:?}", maybe_value);
                     if let Some(v) = maybe_value {
-                        println!("{}", v.dump());
+                        println!("{}", v.dump_short());
                     }
                 }
                 Err(err) => {
