@@ -1,5 +1,0 @@
-var foo = 12;
-
-IF foo <= 34.12 {
-    print("hello");
-}

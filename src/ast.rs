@@ -16,7 +16,7 @@
 //      | if
 //      | if-else
 
-use crate::token::TokenKind;
+use crate::{common::Error, token::TokenKind, vm::VM};
 
 #[derive(Debug)]
 pub(crate) enum BinaryOp {
@@ -107,7 +107,7 @@ impl UnaryOp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum AstValue {
     Str(String),
     Number(f64),
@@ -116,7 +116,7 @@ pub(crate) enum AstValue {
 }
 
 impl AstValue {
-    fn dump(&self) -> String {
+    pub(crate) fn dump(&self) -> String {
         match self {
             Self::Str(s) => s.clone(),
             Self::Number(v) => format!("{:?}", v),
@@ -207,6 +207,19 @@ impl AstExpression {
             _ => self, // Same
         }
     }
+
+    pub(crate) fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
+        match self {
+            Self::Binary {
+                op,
+                lhs_expr,
+                rhs_expr,
+            } => unimplemented!(),
+            Self::Unary { op, expr } => unimplemented!(),
+            Self::Group { expr } => expr.eval(vm),
+            Self::Literal { value } => Ok(Some(value.clone())),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -218,6 +231,12 @@ impl AstStatement {
     fn dump(&self) -> String {
         match self {
             Self::Expr(expr) => expr.dump(),
+        }
+    }
+
+    pub(crate) fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
+        match self {
+            Self::Expr(expr) => expr.eval(vm),
         }
     }
 }
@@ -232,5 +251,15 @@ impl AstStatementList {
             .map(|stmt| stmt.dump())
             .collect::<Vec<_>>()
             .join("")
+    }
+
+    pub(crate) fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
+        let mut last_result = None;
+
+        for stmt in &self.0 {
+            last_result = stmt.eval(vm)?;
+        }
+
+        Ok(last_result)
     }
 }

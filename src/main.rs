@@ -15,6 +15,7 @@ mod parser;
 mod scanner;
 mod str_reader;
 mod token;
+mod vm;
 
 #[derive(clap::Parser)]
 #[command(version, about, long_about = None)]
@@ -88,7 +89,12 @@ fn main() {
             };
 
             match Interpreter::new(statements).evaluate() {
-                Ok(_) => {}
+                Ok(maybe_value) => {
+                    info!("Successful evaluation  Result: {:?}", maybe_value);
+                    if let Some(v) = maybe_value {
+                        println!("{}", v.dump());
+                    }
+                }
                 Err(err) => {
                     error!("Error while evaluating: {:?}", err);
                     std::process::exit(EXIT_CODE_LEXICAL_ERROR);
