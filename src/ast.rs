@@ -208,16 +208,25 @@ impl AstExpression {
         }
     }
 
-    pub(crate) fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
+    pub(crate) fn eval(&self, vm: &mut VM) -> Result<AstValue, Error> {
         match self {
             Self::Binary {
                 op,
                 lhs_expr,
                 rhs_expr,
             } => unimplemented!(),
-            Self::Unary { op, expr } => unimplemented!(),
+            Self::Unary { op, expr } => match op {
+                UnaryOp::Minus => match expr.eval(vm)? {
+                    AstValue::Number(v) => Ok(AstValue::Number(-v)),
+                    other => Err(format!("Error: expected number, got: {:?}", other).into()),
+                },
+                UnaryOp::Bang => match expr.eval(vm)? {
+                    AstValue::Boolean(v) => Ok(AstValue::Boolean(!v)),
+                    other => Err(format!("Error: expected boolean, got: {:?}", other).into()),
+                },
+            },
             Self::Group { expr } => expr.eval(vm),
-            Self::Literal { value } => Ok(Some(value.clone())),
+            Self::Literal { value } => Ok(value.clone()),
         }
     }
 }
@@ -236,7 +245,7 @@ impl AstStatement {
 
     pub(crate) fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
         match self {
-            Self::Expr(expr) => expr.eval(vm),
+            Self::Expr(expr) => expr.eval(vm).map(|v| Some(v)),
         }
     }
 }
