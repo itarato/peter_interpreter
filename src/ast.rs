@@ -107,7 +107,7 @@ impl UnaryOp {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum AstValue {
     Str(String),
     Number(f64),
@@ -131,6 +131,15 @@ impl AstValue {
             Self::Number(v) => format!("{}", v),
             Self::Boolean(v) => format!("{}", v),
             Self::Nil => String::from("nil"),
+        }
+    }
+
+    fn truthy_value(&self) -> bool {
+        match self {
+            Self::Str(_) => true,
+            Self::Boolean(v) => *v,
+            Self::Nil => false,
+            Self::Number(v) => *v != 0.0,
         }
     }
 }
@@ -217,7 +226,7 @@ impl AstExpression {
         }
     }
 
-    pub(crate) fn eval(&self, vm: &mut VM) -> Result<AstValue, Error> {
+    fn eval(&self, vm: &mut VM) -> Result<AstValue, Error> {
         match self {
             Self::Binary {
                 op,
@@ -228,19 +237,6 @@ impl AstExpression {
                 let rhs_v = rhs_expr.eval(vm)?;
 
                 match (lhs_v, rhs_v, op) {
-                    (AstValue::Boolean(lhs), AstValue::Boolean(rhs), BinaryOp::And) => {
-                        Ok(AstValue::Boolean(lhs && rhs))
-                    }
-                    (AstValue::Boolean(lhs), AstValue::Boolean(rhs), BinaryOp::Or) => {
-                        Ok(AstValue::Boolean(lhs || rhs))
-                    }
-                    (AstValue::Boolean(lhs), AstValue::Boolean(rhs), BinaryOp::EqualEqual) => {
-                        Ok(AstValue::Boolean(lhs == rhs))
-                    }
-                    (AstValue::Boolean(lhs), AstValue::Boolean(rhs), BinaryOp::BangEqual) => {
-                        Ok(AstValue::Boolean(lhs != rhs))
-                    }
-
                     (AstValue::Number(lhs), AstValue::Number(rhs), BinaryOp::Plus) => {
                         Ok(AstValue::Number(lhs + rhs))
                     }
@@ -290,6 +286,17 @@ impl AstExpression {
                     (AstValue::Str(lhs), AstValue::Str(rhs), BinaryOp::GreaterEqual) => {
                         Ok(AstValue::Boolean(lhs >= rhs))
                     }
+
+                    (lhs, rhs, BinaryOp::And) => {
+                        Ok(AstValue::Boolean(lhs.truthy_value() && rhs.truthy_value()))
+                    }
+                    (lhs, rhs, BinaryOp::Or) => {
+                        Ok(AstValue::Boolean(lhs.truthy_value() || rhs.truthy_value()))
+                    }
+
+                    (lhs, rhs, BinaryOp::EqualEqual) => Ok(AstValue::Boolean(lhs == rhs)),
+                    (lhs, rhs, BinaryOp::BangEqual) => Ok(AstValue::Boolean(lhs != rhs)),
+
                     (other_lhs, other_rhs, other_op) => Err(format!(
                         "Error: unsupported operation {:?} between {:?} and {:?}",
                         other_op, other_lhs, other_rhs
@@ -303,10 +310,7 @@ impl AstExpression {
                     AstValue::Number(v) => Ok(AstValue::Number(-v)),
                     other => Err(format!("Error: expected number, got: {:?}", other).into()),
                 },
-                UnaryOp::Bang => match expr.eval(vm)? {
-                    AstValue::Boolean(v) => Ok(AstValue::Boolean(!v)),
-                    other => Err(format!("Error: expected boolean, got: {:?}", other).into()),
-                },
+                UnaryOp::Bang => Ok(AstValue::Boolean(!expr.eval(vm)?.truthy_value())),
             },
 
             Self::Group { expr } => expr.eval(vm),
@@ -328,7 +332,7 @@ impl AstStatement {
         }
     }
 
-    pub(crate) fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
+    fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
         match self {
             Self::Expr(expr) => expr.eval(vm).map(|v| Some(v)),
         }
