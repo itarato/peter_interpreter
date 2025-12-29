@@ -97,6 +97,7 @@ fn main() {
                 }
                 Err(err) => {
                     error!("Error while evaluating: {:?}", err);
+                    eprintln!("{:?}", err);
                     std::process::exit(EXIT_CODE_LEXICAL_ERROR);
                 }
             }
