@@ -173,7 +173,7 @@ pub(crate) enum AstExpression {
 }
 
 impl AstExpression {
-    fn dump(&self) -> String {
+    pub(crate) fn dump(&self) -> String {
         match self {
             Self::Literal { value } => value.dump(),
             Self::Unary { op, expr } => format!("({} {})", op.dump(), expr.dump()),

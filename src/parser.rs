@@ -1,3 +1,5 @@
+use log::error;
+
 use crate::{
     ast::{AstExpression, AstStatement, AstStatementList, AstValue, BinaryOp, UnaryOp},
     common::Reader,
@@ -21,31 +23,19 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn parse(mut self) -> Result<AstStatementList, ParsingError<'a>> {
+    pub(crate) fn parse_program(mut self) -> Result<AstStatementList, ParsingError<'a>> {
         let mut statements = vec![];
 
         loop {
             let node = match self.reader.peek() {
                 Some(token) => match token.kind {
-                    TokenKind::String(_)
-                    | TokenKind::Number(_)
-                    | TokenKind::True
-                    | TokenKind::False
-                    | TokenKind::Nil
-                    | TokenKind::Minus
-                    | TokenKind::Bang
-                    | TokenKind::LeftParen => AstStatement::Expr(self.parse_expression()?),
-
                     TokenKind::Eof => break,
-
-                    _ => {
-                        return Err(ParsingError {
-                            token: Some(token),
-                            msg: "Unrecognized token.".into(),
-                        });
-                    }
+                    _ => self.parse_statement()?,
                 },
-                None => break,
+                None => {
+                    error!("Missing EOF");
+                    break;
+                }
             };
 
             statements.push(node);
@@ -54,7 +44,39 @@ impl<'a> Parser<'a> {
         Ok(AstStatementList(statements))
     }
 
-    fn parse_expression(&mut self) -> Result<AstExpression, ParsingError<'a>> {
+    fn parse_statement(&mut self) -> Result<AstStatement, ParsingError<'a>> {
+        match self.reader.peek() {
+            Some(token) => match token.kind {
+                TokenKind::String(_)
+                | TokenKind::Number(_)
+                | TokenKind::True
+                | TokenKind::False
+                | TokenKind::Nil
+                | TokenKind::Minus
+                | TokenKind::Bang
+                | TokenKind::LeftParen => {
+                    let expr = self.parse_expression()?;
+
+                    self.pop_and_assert(&TokenKind::Semicolon)?;
+
+                    Ok(AstStatement::Expr(expr))
+                }
+
+                _ => {
+                    return Err(ParsingError {
+                        token: Some(token),
+                        msg: "Unrecognized token for statement.".into(),
+                    });
+                }
+            },
+            None => Err(ParsingError {
+                token: None,
+                msg: "No more token for statement.".into(),
+            }),
+        }
+    }
+
+    pub(crate) fn parse_expression(&mut self) -> Result<AstExpression, ParsingError<'a>> {
         let mut expr: AstExpression = self.parse_single_expression_unit()?;
 
         loop {
@@ -69,7 +91,6 @@ impl<'a> Parser<'a> {
                             rhs_expr: Box::new(rhs),
                         }
                         .ensure_precedence();
-                        // TODO: Precedence.
                     }
                     None => return Ok(expr),
                 },
@@ -160,7 +181,11 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::{ast::AstStatementList, parser::Parser, scanner::Scanner};
+    use crate::{
+        ast::{AstExpression, AstStatementList},
+        parser::Parser,
+        scanner::Scanner,
+    };
 
     #[test]
     fn test_empty() {
@@ -213,8 +238,8 @@ mod test {
         );
     }
 
-    fn parse(source: &str) -> AstStatementList {
+    fn parse(source: &str) -> AstExpression {
         let tokens = Scanner::new(source).scan().unwrap();
-        Parser::new(&tokens[..]).parse().unwrap()
+        Parser::new(&tokens[..]).parse_expression().unwrap()
     }
 }

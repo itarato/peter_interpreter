@@ -3,6 +3,7 @@ use log::{error, info};
 use std::fs;
 
 use crate::{
+    ast::{AstStatement, AstStatementList},
     common::{EXIT_CODE_LEXICAL_ERROR, EXIT_CODE_RUNTIME_ERROR, EXIT_CODE_SUCCESS},
     interpreter::Interpreter,
     scanner::Scanner,
@@ -59,8 +60,8 @@ fn main() {
                 std::process::exit(EXIT_CODE_LEXICAL_ERROR);
             }
 
-            match parser::Parser::new(&tokens[..]).parse() {
-                Ok(ast_stmts) => println!("{}", ast_stmts.dump()),
+            match parser::Parser::new(&tokens[..]).parse_expression() {
+                Ok(expr) => println!("{}", expr.dump()),
                 Err(err) => {
                     error!("Error while parsing: {:?}", err);
 
@@ -80,7 +81,7 @@ fn main() {
                 std::process::exit(EXIT_CODE_LEXICAL_ERROR);
             }
 
-            let statements = match parser::Parser::new(&tokens[..]).parse() {
+            let expr = match parser::Parser::new(&tokens[..]).parse_expression() {
                 Ok(statements) => statements,
                 Err(err) => {
                     error!("Error while parsing: {:?}", err);
@@ -88,7 +89,9 @@ fn main() {
                 }
             };
 
-            match Interpreter::new(statements).evaluate() {
+            let program = AstStatementList(vec![AstStatement::Expr(expr)]);
+
+            match Interpreter::new(program).evaluate() {
                 Ok(maybe_value) => {
                     info!("Successful evaluation  Result: {:?}", maybe_value);
                     if let Some(v) = maybe_value {
