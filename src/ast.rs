@@ -118,37 +118,37 @@ pub(crate) enum AstValue {
 impl AstValue {
     fn dump(&self) -> String {
         match self {
-            Self::Str { value, line } => value.clone(),
-            Self::Number { value, line } => format!("{:?}", value),
-            Self::Boolean { value, line } => format!("{:?}", value),
-            Self::Nil { line } => String::from("nil"),
+            Self::Str { value, .. } => value.clone(),
+            Self::Number { value, .. } => format!("{:?}", value),
+            Self::Boolean { value, .. } => format!("{:?}", value),
+            Self::Nil { .. } => String::from("nil"),
         }
     }
 
     pub(crate) fn dump_short(&self) -> String {
         match self {
-            Self::Str { value, line } => value.clone(),
-            Self::Number { value, line } => format!("{}", value),
-            Self::Boolean { value, line } => format!("{}", value),
-            Self::Nil { line } => String::from("nil"),
+            Self::Str { value, .. } => value.clone(),
+            Self::Number { value, .. } => format!("{}", value),
+            Self::Boolean { value, .. } => format!("{}", value),
+            Self::Nil { .. } => String::from("nil"),
         }
     }
 
     fn truthy_value(&self) -> bool {
         match self {
-            Self::Str { value, line } => true,
-            Self::Boolean { value, line } => *value,
-            Self::Nil { line } => false,
-            Self::Number { value, line } => *value != 0.0,
+            Self::Str { .. } => true,
+            Self::Boolean { value, .. } => *value,
+            Self::Nil { .. } => false,
+            Self::Number { value, .. } => *value != 0.0,
         }
     }
 
     pub(crate) fn line(&self) -> usize {
         match self {
-            Self::Boolean { value, line } => *line,
+            Self::Boolean { line, .. } => *line,
             Self::Nil { line } => *line,
-            Self::Number { value, line } => *line,
-            Self::Str { value, line } => *line,
+            Self::Number { line, .. } => *line,
+            Self::Str { line, .. } => *line,
         }
     }
 }
