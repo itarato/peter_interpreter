@@ -4,11 +4,13 @@ use std::fs;
 
 use crate::{
     common::{EXIT_CODE_LEXICAL_ERROR, EXIT_CODE_SUCCESS},
+    interpreter::Interpreter,
     scanner::Scanner,
 };
 
 mod ast;
 mod common;
+mod interpreter;
 mod parser;
 mod scanner;
 mod str_reader;
@@ -68,6 +70,27 @@ fn main() {
                         err.msg
                     );
 
+                    std::process::exit(EXIT_CODE_LEXICAL_ERROR);
+                }
+            }
+        }
+        "evaluate" => {
+            if exit_code != EXIT_CODE_SUCCESS {
+                std::process::exit(EXIT_CODE_LEXICAL_ERROR);
+            }
+
+            let statements = match parser::Parser::new(&tokens[..]).parse() {
+                Ok(statements) => statements,
+                Err(err) => {
+                    error!("Error while parsing: {:?}", err);
+                    std::process::exit(EXIT_CODE_LEXICAL_ERROR);
+                }
+            };
+
+            match Interpreter::new(statements).evaluate() {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("Error while evaluating: {:?}", err);
                     std::process::exit(EXIT_CODE_LEXICAL_ERROR);
                 }
             }
