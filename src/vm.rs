@@ -124,7 +124,7 @@ impl<'a> VM<'a> {
                             value: std::time::SystemTime::now()
                                 .duration_since(std::time::UNIX_EPOCH)
                                 .unwrap()
-                                .as_millis() as f64,
+                                .as_secs_f64(),
                             line: usize::MAX,
                         })
                     }
