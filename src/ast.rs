@@ -506,6 +506,10 @@ pub(crate) enum AstStatement {
         then: Box<AstStatement>,
         otherwise: Option<Box<AstStatement>>,
     },
+    While {
+        cond: AstExpression,
+        block: Box<AstStatement>,
+    },
 }
 
 impl AstStatement {
@@ -556,6 +560,17 @@ impl AstStatement {
                     } else {
                         Ok(None)
                     }
+                }
+            }
+            Self::While { cond, block } => {
+                let mut last_result = None;
+
+                loop {
+                    if !cond.eval(vm)?.truthy_value() {
+                        break Ok(last_result);
+                    }
+
+                    last_result = block.eval(vm)?;
                 }
             }
         }

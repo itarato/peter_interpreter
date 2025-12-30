@@ -124,6 +124,20 @@ impl<'a> Parser<'a> {
                         otherwise,
                     })
                 }
+
+                TokenKind::While => {
+                    self.reader.pop(); // while
+                    self.pop_and_assert(&TokenKind::LeftParen)?;
+                    let cond = self.parse_expression()?;
+                    self.pop_and_assert(&TokenKind::RightParen)?;
+                    let block = self.parse_statement()?;
+
+                    Ok(AstStatement::While {
+                        cond,
+                        block: Box::new(block),
+                    })
+                }
+
                 _ => {
                     return Err(ParsingError {
                         token: Some(token),
