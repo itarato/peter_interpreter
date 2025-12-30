@@ -112,7 +112,7 @@ impl UnaryOp {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub(crate) enum AstValue {
     Str { value: String, line: usize },
     Number { value: f64, line: usize },
@@ -154,6 +154,21 @@ impl AstValue {
             Self::Nil { line } => *line,
             Self::Number { line, .. } => *line,
             Self::Str { line, .. } => *line,
+        }
+    }
+}
+
+impl PartialEq for AstValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (AstValue::Boolean { value: lhs, .. }, AstValue::Boolean { value: rhs, .. }) => {
+                lhs == rhs
+            }
+            (AstValue::Number { value: lhs, .. }, AstValue::Number { value: rhs, .. }) => {
+                lhs == rhs
+            }
+            (AstValue::Nil { .. }, AstValue::Nil { .. }) => true,
+            _ => false,
         }
     }
 }
