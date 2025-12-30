@@ -254,8 +254,9 @@ impl AstExpression {
                 lhs_expr,
                 rhs_expr,
             } => {
-                if op == &BinaryOp::Equal {
-                    match &**lhs_expr {
+                // Pre - evaluation phase.
+                match op {
+                    BinaryOp::Equal => match &**lhs_expr {
                         AstExpression::Identifier { name } => {
                             let rhs_v = rhs_expr.eval(vm)?;
                             vm.update_variable(name.clone(), rhs_v.clone())?;
@@ -268,7 +269,24 @@ impl AstExpression {
                             )
                             .into());
                         }
+                    },
+                    BinaryOp::And => {
+                        let lhs_value = lhs_expr.eval(vm)?;
+                        if !lhs_value.truthy_value() {
+                            return Ok(lhs_value);
+                        } else {
+                            return rhs_expr.eval(vm);
+                        }
                     }
+                    BinaryOp::Or => {
+                        let lhs_value = lhs_expr.eval(vm)?;
+                        if lhs_value.truthy_value() {
+                            return Ok(lhs_value);
+                        } else {
+                            return rhs_expr.eval(vm);
+                        }
+                    }
+                    _ => {}
                 }
 
                 let lhs_v = lhs_expr.eval(vm)?;
@@ -412,24 +430,6 @@ impl AstExpression {
                         value: lhs + &rhs,
                         line,
                     }),
-
-                    (lhs, rhs, BinaryOp::And) => Ok(AstValue::Boolean {
-                        value: lhs.truthy_value() && rhs.truthy_value(),
-                        line: lhs.line(),
-                    }),
-                    (lhs, rhs, BinaryOp::Or) => {
-                        let value = if lhs.truthy_value() {
-                            lhs
-                        } else if rhs.truthy_value() {
-                            rhs
-                        } else {
-                            AstValue::Boolean {
-                                value: false,
-                                line: lhs.line(),
-                            }
-                        };
-                        Ok(value)
-                    }
 
                     (lhs, rhs, BinaryOp::EqualEqual) => Ok(AstValue::Boolean {
                         value: lhs == rhs,
