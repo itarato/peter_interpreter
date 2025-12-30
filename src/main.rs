@@ -76,6 +76,27 @@ fn main() {
                 }
             }
         }
+        "parse_full" => {
+            if exit_code != EXIT_CODE_SUCCESS {
+                std::process::exit(EXIT_CODE_LEXICAL_ERROR);
+            }
+
+            match parser::Parser::new(&tokens[..]).parse_program() {
+                Ok(expr) => println!("{}", expr.dump()),
+                Err(err) => {
+                    error!("Error while parsing: {:?}", err);
+
+                    eprintln!(
+                        "[line {}] Error at '{}': {}",
+                        err.token.map(|t| t.line + 1).unwrap_or(1),
+                        err.token.map(|t| t.lexeme).unwrap_or(""),
+                        err.msg
+                    );
+
+                    std::process::exit(EXIT_CODE_LEXICAL_ERROR);
+                }
+            }
+        }
         "evaluate" => {
             if exit_code != EXIT_CODE_SUCCESS {
                 std::process::exit(EXIT_CODE_LEXICAL_ERROR);

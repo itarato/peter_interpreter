@@ -280,9 +280,34 @@ impl<'a> Parser<'a> {
             TokenKind::Nil => Ok(AstExpression::Literal {
                 value: AstValue::Nil { line: token.line },
             }),
-            TokenKind::Identifier => Ok(AstExpression::Identifier {
-                name: token.lexeme.to_string(),
-            }),
+            TokenKind::Identifier => {
+                if self.is_next_token_kind(TokenKind::LeftParen) {
+                    let name = token.lexeme.to_string();
+                    self.reader.pop(); // left paren
+
+                    let mut args = vec![];
+                    if !self.is_next_token_kind(TokenKind::RightParen) {
+                        loop {
+                            let arg = self.parse_single_expression_unit()?;
+                            args.push(arg);
+
+                            if self.is_next_token_kind(TokenKind::RightParen) {
+                                break;
+                            }
+
+                            self.pop_and_assert(&TokenKind::Comma)?;
+                        }
+                    }
+
+                    self.pop_and_assert(&TokenKind::RightParen);
+
+                    Ok(AstExpression::FnCall { name, args })
+                } else {
+                    Ok(AstExpression::Identifier {
+                        name: token.lexeme.to_string(),
+                    })
+                }
+            }
 
             _ => Err(ParsingError {
                 token: Some(token),

@@ -193,6 +193,10 @@ pub(crate) enum AstExpression {
     Group {
         expr: Box<AstExpression>,
     },
+    FnCall {
+        name: String,
+        args: Vec<AstExpression>,
+    },
 }
 
 impl AstExpression {
@@ -207,6 +211,14 @@ impl AstExpression {
             } => format!("({} {} {})", op.dump(), lhs_expr.dump(), rhs_expr.dump()),
             Self::Group { expr } => format!("(group {})", expr.dump()),
             Self::Identifier { name } => format!("{}", name),
+            Self::FnCall { name, args } => format!(
+                "{}({})",
+                name,
+                args.iter()
+                    .map(|arg| arg.dump())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 
@@ -491,6 +503,10 @@ impl AstExpression {
                 Some(value) => Ok(value.clone()),
                 None => Err(format!("Error: missing variable declaration for <{}>", name).into()),
             },
+
+            Self::FnCall { name, args } => {
+                unimplemented!()
+            }
         }
     }
 }
@@ -519,13 +535,45 @@ pub(crate) enum AstStatement {
 }
 
 impl AstStatement {
-    // fn dump(&self) -> String {
-    //     match self {
-    //         Self::Expr(expr) => expr.dump(),
-    //         Self::Print(expr) => format!("print {}", expr.dump()),
-    //         Self::VarAssignment(name, expr) => format!("var {} = {}", name, expr.dump()),
-    //     }
-    // }
+    fn dump(&self) -> String {
+        match self {
+            Self::Expr(expr) => expr.dump(),
+            Self::Print(expr) => format!("print {}", expr.dump()),
+            Self::VarAssignment(name, expr) => format!("var {} = {}", name, expr.dump()),
+            Self::Block(stmt) => format!("{{\n{}\n}}", stmt.dump()),
+            Self::For {
+                init,
+                cond,
+                post_op,
+                block,
+            } => format!(
+                "for ({}; {}; {}) {}",
+                init.as_ref().map(|init| init.dump()).unwrap_or_default(),
+                cond.as_ref().map(|cond| cond.dump()).unwrap_or_default(),
+                post_op
+                    .as_ref()
+                    .map(|post_op| post_op.dump())
+                    .unwrap_or_default(),
+                block.dump()
+            ),
+            Self::If {
+                cond,
+                then,
+                otherwise,
+            } => format!(
+                "if {} {} else {}",
+                cond.dump(),
+                then.dump(),
+                otherwise
+                    .as_ref()
+                    .map(|otherwise| otherwise.dump())
+                    .unwrap_or("{}".into()),
+            ),
+            Self::While { cond, block } => {
+                format!("while {} {}", cond.dump(), block.dump())
+            }
+        }
+    }
 
     fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
         match self {
@@ -622,13 +670,13 @@ impl AstStatement {
 pub(crate) struct AstStatementList(pub(crate) Vec<AstStatement>);
 
 impl AstStatementList {
-    // pub(crate) fn dump(&self) -> String {
-    //     self.0
-    //         .iter()
-    //         .map(|stmt| stmt.dump())
-    //         .collect::<Vec<_>>()
-    //         .join("")
-    // }
+    pub(crate) fn dump(&self) -> String {
+        self.0
+            .iter()
+            .map(|stmt| stmt.dump())
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
 
     pub(crate) fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
         let mut last_result = None;
