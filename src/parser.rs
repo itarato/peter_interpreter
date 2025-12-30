@@ -166,20 +166,27 @@ impl<'a> Parser<'a> {
                         Some(stmt)
                     };
 
-                    let post_stmt = if self.is_next_token_kind(TokenKind::RightParen) {
+                    let post_op = if self.is_next_token_kind(TokenKind::RightParen) {
                         None
                     } else {
-                        let stmt = self.parse_statement(true)?;
-                        Some(Box::new(stmt))
+                        let stmt = self.parse_expression()?;
+                        Some(stmt)
                     };
 
                     self.pop_and_assert(&TokenKind::RightParen)?;
                     let block = Box::new(self.parse_statement(false)?);
 
+                    if block.is_var_assignment() {
+                        return Err(ParsingError {
+                            token: Some(token),
+                            msg: "Error: cannot have variable assignment at a <for> block.".into(),
+                        });
+                    }
+
                     Ok(AstStatement::For {
                         init,
                         cond,
-                        post_stmt,
+                        post_op,
                         block,
                     })
                 }

@@ -513,7 +513,7 @@ pub(crate) enum AstStatement {
     For {
         init: Option<Box<AstStatement>>,
         cond: Option<AstExpression>,
-        post_stmt: Option<Box<AstStatement>>,
+        post_op: Option<AstExpression>,
         block: Box<AstStatement>,
     },
 }
@@ -582,7 +582,7 @@ impl AstStatement {
             Self::For {
                 init,
                 cond,
-                post_stmt,
+                post_op,
                 block,
             } => {
                 let mut last_result = None;
@@ -600,13 +600,20 @@ impl AstStatement {
 
                     last_result = block.eval(vm)?;
 
-                    if let Some(post_stmt) = post_stmt {
-                        post_stmt.eval(vm)?;
+                    if let Some(post_op) = post_op {
+                        post_op.eval(vm)?;
                     }
                 }
 
                 Ok(last_result)
             }
+        }
+    }
+
+    pub(crate) fn is_var_assignment(&self) -> bool {
+        match self {
+            AstStatement::VarAssignment(_, _) => true,
+            _ => false,
         }
     }
 }
