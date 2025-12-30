@@ -512,6 +512,13 @@ impl AstExpression {
 }
 
 #[derive(Debug)]
+pub(crate) struct AstFn {
+    name: String,
+    args: Vec<String>,
+    body: AstStatementList,
+}
+
+#[derive(Debug)]
 pub(crate) enum AstStatement {
     Expr(AstExpression),
     Print(AstExpression),
@@ -532,6 +539,7 @@ pub(crate) enum AstStatement {
         post_op: Option<AstExpression>,
         block: Box<AstStatement>,
     },
+    FnDef(AstFn),
 }
 
 impl AstStatement {
@@ -571,6 +579,9 @@ impl AstStatement {
             ),
             Self::While { cond, block } => {
                 format!("while {} {}", cond.dump(), block.dump())
+            }
+            Self::FnDef(AstFn { name, args, body }) => {
+                format!("{}({}) {}", name, args.join(", "), body.dump())
             }
         }
     }
@@ -654,6 +665,9 @@ impl AstStatement {
                 }
 
                 Ok(last_result)
+            }
+            Self::FnDef(AstFn { name, args, body }) => {
+                unimplemented!()
             }
         }
     }

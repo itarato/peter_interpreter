@@ -4,6 +4,7 @@ use crate::{ast::AstValue, common::Error};
 
 pub(crate) struct Scope {
     vars: HashMap<String, AstValue>,
+    // functions: HashMap<String, A>
     is_soft: bool,
 }
 
