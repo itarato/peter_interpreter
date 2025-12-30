@@ -40,4 +40,12 @@ impl VM {
             .vars
             .insert(name, value);
     }
+
+    pub(crate) fn push_scope(&mut self) {
+        self.scope_stack.push(Scope::new());
+    }
+
+    pub(crate) fn pop_scope(&mut self) {
+        self.scope_stack.pop().unwrap();
+    }
 }

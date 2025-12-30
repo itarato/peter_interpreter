@@ -476,6 +476,7 @@ pub(crate) enum AstStatement {
     Expr(AstExpression),
     Print(AstExpression),
     VarAssignment(String, AstExpression),
+    Block(AstStatementList),
 }
 
 impl AstStatement {
@@ -499,6 +500,19 @@ impl AstStatement {
                 let value = expr.eval(vm)?;
                 vm.store_variable(name.clone(), value);
                 Ok(None)
+            }
+            Self::Block(statements) => {
+                vm.push_scope();
+
+                let mut last_result = None;
+
+                for stmt in &statements.0 {
+                    last_result = stmt.eval(vm)?;
+                }
+
+                vm.pop_scope();
+
+                Ok(last_result)
             }
         }
     }

@@ -24,11 +24,16 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn parse_program(mut self) -> Result<AstStatementList, ParsingError<'a>> {
+        self.parse_statement_list()
+    }
+
+    pub(crate) fn parse_statement_list(&mut self) -> Result<AstStatementList, ParsingError<'a>> {
         let mut statements = vec![];
 
         loop {
             let node = match self.reader.peek() {
                 Some(token) => match token.kind {
+                    TokenKind::RightBrace => break,
                     TokenKind::Eof => break,
                     _ => self.parse_statement()?,
                 },
@@ -89,6 +94,13 @@ impl<'a> Parser<'a> {
                         };
 
                     Ok(AstStatement::VarAssignment(name, expr))
+                }
+
+                TokenKind::LeftBrace => {
+                    self.reader.pop(); // left brace
+                    let stmts = self.parse_statement_list()?;
+                    self.pop_and_assert(&TokenKind::RightBrace)?;
+                    Ok(AstStatement::Block(stmts))
                 }
 
                 _ => {
