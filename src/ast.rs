@@ -16,11 +16,7 @@
 //      | if
 //      | if-else
 
-use crate::{
-    common::Error,
-    token::{self, TokenKind},
-    vm::VM,
-};
+use crate::{common::Error, token::TokenKind, vm::VM};
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum BinaryOp {
