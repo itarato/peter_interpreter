@@ -520,7 +520,7 @@ impl AstExpression {
 pub(crate) struct AstFn {
     pub(crate) name: String,
     pub(crate) args: Vec<String>,
-    pub(crate) body: Box<AstStatement>,
+    pub(crate) body: Box<AstStatementList>,
 }
 
 impl AstFn {

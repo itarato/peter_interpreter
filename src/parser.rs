@@ -216,7 +216,11 @@ impl<'a> Parser<'a> {
 
                     self.pop_and_assert(&TokenKind::RightParen)?;
 
-                    let body = self.parse_statement(false)?;
+                    self.pop_and_assert(&TokenKind::LeftBrace)?;
+
+                    let body = self.parse_statement_list()?;
+
+                    self.pop_and_assert(&TokenKind::RightBrace)?;
 
                     Ok(AstStatement::FnDef(Rc::new(AstFn {
                         name: name_token.lexeme.to_string(),
