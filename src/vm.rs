@@ -1,17 +1,17 @@
-use std::{collections::HashMap, usize};
+use std::{collections::HashMap, rc::Rc, usize};
 
 use crate::{
     ast::{AstExpression, AstFn, AstValue},
     common::Error,
 };
 
-pub(crate) struct Scope<'a> {
+pub(crate) struct Scope {
     vars: HashMap<String, AstValue>,
-    functions: HashMap<String, &'a AstFn>,
+    functions: HashMap<String, Rc<AstFn>>,
     is_soft: bool,
 }
 
-impl<'a> Scope<'a> {
+impl Scope {
     fn new_soft() -> Self {
         Self {
             vars: HashMap::new(),
@@ -21,11 +21,11 @@ impl<'a> Scope<'a> {
     }
 }
 
-pub(crate) struct VM<'a> {
-    scope_stack: Vec<Scope<'a>>,
+pub(crate) struct VM {
+    scope_stack: Vec<Scope>,
 }
 
-impl<'a> VM<'a> {
+impl VM {
     pub(crate) fn new() -> Self {
         Self {
             scope_stack: vec![Scope::new_soft()],
@@ -77,12 +77,36 @@ impl<'a> VM<'a> {
         self.scope_stack.pop().unwrap();
     }
 
-    pub(crate) fn establish_fn(&mut self, fn_def: &'a AstFn) {
+    pub(crate) fn establish_fn(&mut self, fn_def: Rc<AstFn>) {
         self.scope_stack
             .last_mut()
             .unwrap()
             .functions
-            .insert(fn_def.name.clone(), fn_def);
+            .insert(fn_def.name.clone(), fn_def.clone());
+
+        self.scope_stack.last_mut().unwrap().vars.insert(
+            fn_def.name.clone(),
+            AstValue::FnRef {
+                function: fn_def.clone(),
+            },
+        );
+    }
+
+    fn lookup_fn_reference(&self, name: &str) -> Option<Rc<AstFn>> {
+        for scope in self.scope_stack.iter().rev() {
+            if scope.vars.contains_key(name) {
+                match scope.vars.get(name).unwrap() {
+                    AstValue::FnRef { function } => return Some(function.clone()),
+                    _ => continue,
+                }
+            }
+
+            if !scope.is_soft {
+                break;
+            }
+        }
+
+        None
     }
 
     pub(crate) fn eval_fn(
@@ -92,11 +116,11 @@ impl<'a> VM<'a> {
     ) -> Result<AstValue, Error> {
         let mut it = self.scope_stack.iter().rev();
 
-        let fn_def = loop {
+        let mut fn_def = loop {
             match it.next() {
                 Some(scope) => {
                     if scope.functions.contains_key(name) {
-                        break scope.functions.get(name);
+                        break scope.functions.get(name).cloned();
                     }
 
                     if !scope.is_soft {
@@ -107,9 +131,13 @@ impl<'a> VM<'a> {
             }
         };
 
+        if let None = fn_def {
+            fn_def = self.lookup_fn_reference(name);
+        }
+
         match fn_def {
             Some(fn_def) => {
-                return fn_def.eval(self, args);
+                return fn_def.clone().eval(self, args);
             }
             None => match name {
                 "clock" => {

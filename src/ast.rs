@@ -16,7 +16,7 @@
 //      | if
 //      | if-else
 
-use std::usize;
+use std::{rc::Rc, usize};
 
 use crate::{common::Error, token::TokenKind, vm::VM};
 
@@ -120,6 +120,7 @@ pub(crate) enum AstValue {
     Number { value: f64, line: usize },
     Boolean { value: bool, line: usize },
     Nil { line: usize },
+    FnRef { function: Rc<AstFn> },
 }
 
 impl AstValue {
@@ -129,6 +130,7 @@ impl AstValue {
             Self::Number { value, .. } => format!("{:?}", value),
             Self::Boolean { value, .. } => format!("{:?}", value),
             Self::Nil { .. } => String::from("nil"),
+            Self::FnRef { function } => format!("<fn {}>", function.name),
         }
     }
 
@@ -138,6 +140,7 @@ impl AstValue {
             Self::Number { value, .. } => format!("{}", value),
             Self::Boolean { value, .. } => format!("{}", value),
             Self::Nil { .. } => String::from("nil"),
+            Self::FnRef { function } => format!("<fn {}>", function.name),
         }
     }
 
@@ -147,6 +150,7 @@ impl AstValue {
             Self::Boolean { value, .. } => *value,
             Self::Nil { .. } => false,
             Self::Number { value, .. } => *value != 0.0,
+            Self::FnRef { .. } => true,
         }
     }
 
@@ -156,6 +160,7 @@ impl AstValue {
             Self::Nil { line } => *line,
             Self::Number { line, .. } => *line,
             Self::Str { line, .. } => *line,
+            Self::FnRef { .. } => usize::MAX,
         }
     }
 }
@@ -521,7 +526,7 @@ pub(crate) struct AstFn {
 impl AstFn {
     pub(crate) fn eval<'a>(
         &'a self,
-        vm: &mut VM<'a>,
+        vm: &mut VM,
         args_input: &Vec<AstExpression>,
     ) -> Result<AstValue, Error> {
         if self.args.len() != args_input.len() {
@@ -573,7 +578,7 @@ pub(crate) enum AstStatement {
         post_op: Option<AstExpression>,
         block: Box<AstStatement>,
     },
-    FnDef(AstFn),
+    FnDef(Rc<AstFn>),
 }
 
 impl AstStatement {
@@ -614,13 +619,18 @@ impl AstStatement {
             Self::While { cond, block } => {
                 format!("while {} {}", cond.dump(), block.dump())
             }
-            Self::FnDef(AstFn { name, args, body }) => {
-                format!("{}({}) {}", name, args.join(", "), body.dump())
+            Self::FnDef(fn_def) => {
+                format!(
+                    "{}({}) {}",
+                    fn_def.name,
+                    fn_def.args.join(", "),
+                    fn_def.body.dump()
+                )
             }
         }
     }
 
-    fn eval<'a>(&'a self, vm: &mut VM<'a>) -> Result<Option<AstValue>, Error> {
+    fn eval<'a>(&'a self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
         match self {
             Self::Expr(expr) => expr.eval(vm).map(|v| Some(v)),
             Self::Print(expr) => {
@@ -701,7 +711,7 @@ impl AstStatement {
                 Ok(last_result)
             }
             Self::FnDef(fn_def) => {
-                vm.establish_fn(fn_def);
+                vm.establish_fn(fn_def.clone());
                 Ok(None)
             }
         }
@@ -727,7 +737,7 @@ impl AstStatementList {
             .join("\n")
     }
 
-    pub(crate) fn eval<'a>(&'a self, vm: &mut VM<'a>) -> Result<Option<AstValue>, Error> {
+    pub(crate) fn eval<'a>(&'a self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
         let mut last_result = None;
 
         for stmt in &self.0 {

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use log::error;
 
 use crate::{
@@ -216,11 +218,11 @@ impl<'a> Parser<'a> {
 
                     let body = self.parse_statement(false)?;
 
-                    Ok(AstStatement::FnDef(AstFn {
+                    Ok(AstStatement::FnDef(Rc::new(AstFn {
                         name: name_token.lexeme.to_string(),
                         args,
                         body: Box::new(body),
-                    }))
+                    })))
                 }
 
                 _ => {
