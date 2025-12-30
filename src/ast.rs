@@ -18,8 +18,6 @@
 
 use std::usize;
 
-use log::debug;
-
 use crate::{common::Error, token::TokenKind, vm::VM};
 
 #[derive(Debug, PartialEq)]
