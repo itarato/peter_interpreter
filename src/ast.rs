@@ -510,6 +510,12 @@ pub(crate) enum AstStatement {
         cond: AstExpression,
         block: Box<AstStatement>,
     },
+    For {
+        init: Option<Box<AstStatement>>,
+        cond: Option<AstExpression>,
+        post_stmt: Option<Box<AstStatement>>,
+        block: Box<AstStatement>,
+    },
 }
 
 impl AstStatement {
@@ -572,6 +578,34 @@ impl AstStatement {
 
                     last_result = block.eval(vm)?;
                 }
+            }
+            Self::For {
+                init,
+                cond,
+                post_stmt,
+                block,
+            } => {
+                let mut last_result = None;
+
+                if let Some(init) = init {
+                    init.eval(vm)?;
+                }
+
+                loop {
+                    if let Some(cond) = cond {
+                        if !cond.eval(vm)?.truthy_value() {
+                            break;
+                        }
+                    }
+
+                    last_result = block.eval(vm)?;
+
+                    if let Some(post_stmt) = post_stmt {
+                        post_stmt.eval(vm)?;
+                    }
+                }
+
+                Ok(last_result)
             }
         }
     }

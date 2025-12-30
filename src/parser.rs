@@ -35,7 +35,7 @@ impl<'a> Parser<'a> {
                 Some(token) => match token.kind {
                     TokenKind::RightBrace => break,
                     TokenKind::Eof => break,
-                    _ => self.parse_statement()?,
+                    _ => self.parse_statement(false)?,
                 },
                 None => {
                     error!("Missing EOF");
@@ -49,7 +49,7 @@ impl<'a> Parser<'a> {
         Ok(AstStatementList(statements))
     }
 
-    fn parse_statement(&mut self) -> Result<AstStatement, ParsingError<'a>> {
+    fn parse_statement(&mut self, skip_semicolon: bool) -> Result<AstStatement, ParsingError<'a>> {
         match self.reader.peek() {
             Some(token) => match token.kind {
                 TokenKind::String(_)
@@ -62,14 +62,22 @@ impl<'a> Parser<'a> {
                 | TokenKind::LeftParen
                 | TokenKind::Identifier => {
                     let expr = self.parse_expression()?;
-                    self.pop_and_assert(&TokenKind::Semicolon)?;
+
+                    if !skip_semicolon {
+                        self.pop_and_assert(&TokenKind::Semicolon)?;
+                    }
+
                     Ok(AstStatement::Expr(expr))
                 }
 
                 TokenKind::Print => {
                     self.reader.pop(); // print
                     let expr = self.parse_expression()?;
-                    self.pop_and_assert(&TokenKind::Semicolon)?;
+
+                    if !skip_semicolon {
+                        self.pop_and_assert(&TokenKind::Semicolon)?;
+                    }
+
                     Ok(AstStatement::Print(expr))
                 }
 
@@ -80,18 +88,17 @@ impl<'a> Parser<'a> {
                         .lexeme
                         .to_string();
 
-                    let expr =
-                        if let Some(&TokenKind::Semicolon) = self.reader.peek().map(|t| &t.kind) {
-                            self.reader.pop(); // semicolon
-                            AstExpression::Literal {
-                                value: AstValue::Nil { line: token.line },
-                            }
-                        } else {
-                            self.pop_and_assert(&TokenKind::Equal)?;
-                            let expr = self.parse_expression()?;
-                            self.pop_and_assert(&TokenKind::Semicolon)?;
-                            expr
-                        };
+                    let expr = if self.is_next_token_kind(TokenKind::Semicolon) {
+                        self.reader.pop(); // semicolon
+                        AstExpression::Literal {
+                            value: AstValue::Nil { line: token.line },
+                        }
+                    } else {
+                        self.pop_and_assert(&TokenKind::Equal)?;
+                        let expr = self.parse_expression()?;
+                        self.pop_and_assert(&TokenKind::Semicolon)?;
+                        expr
+                    };
 
                     Ok(AstStatement::VarAssignment(name, expr))
                 }
@@ -108,12 +115,12 @@ impl<'a> Parser<'a> {
                     self.pop_and_assert(&TokenKind::LeftParen)?;
                     let cond = self.parse_expression()?;
                     self.pop_and_assert(&TokenKind::RightParen)?;
-                    let then = self.parse_statement()?;
+                    let then = self.parse_statement(false)?;
 
                     let otherwise =
                         if let Some(&TokenKind::Else) = self.reader.peek().map(|t| &t.kind) {
                             self.reader.pop(); // else
-                            Some(Box::new(self.parse_statement()?))
+                            Some(Box::new(self.parse_statement(false)?))
                         } else {
                             None
                         };
@@ -130,11 +137,50 @@ impl<'a> Parser<'a> {
                     self.pop_and_assert(&TokenKind::LeftParen)?;
                     let cond = self.parse_expression()?;
                     self.pop_and_assert(&TokenKind::RightParen)?;
-                    let block = self.parse_statement()?;
+                    let block = self.parse_statement(false)?;
 
                     Ok(AstStatement::While {
                         cond,
                         block: Box::new(block),
+                    })
+                }
+
+                TokenKind::For => {
+                    self.reader.pop(); // for
+                    self.pop_and_assert(&TokenKind::LeftParen)?;
+
+                    let init = if self.is_next_token_kind(TokenKind::Semicolon) {
+                        self.reader.pop(); // semicolon
+                        None
+                    } else {
+                        let stmt = self.parse_statement(false)?;
+                        Some(Box::new(stmt))
+                    };
+
+                    let cond = if self.is_next_token_kind(TokenKind::Semicolon) {
+                        self.reader.pop(); // semicolon
+                        None
+                    } else {
+                        let stmt = self.parse_expression()?;
+                        self.pop_and_assert(&TokenKind::Semicolon)?;
+                        Some(stmt)
+                    };
+
+                    let post_stmt = if self.is_next_token_kind(TokenKind::RightParen) {
+                        None
+                    } else {
+                        let stmt = self.parse_statement(true)?;
+                        Some(Box::new(stmt))
+                    };
+
+                    self.pop_and_assert(&TokenKind::RightParen)?;
+                    let block = Box::new(self.parse_statement(false)?);
+
+                    Ok(AstStatement::For {
+                        init,
+                        cond,
+                        post_stmt,
+                        block,
                     })
                 }
 
@@ -258,6 +304,13 @@ impl<'a> Parser<'a> {
                 msg: "No more tokens.".into(),
             }),
         }
+    }
+
+    fn is_next_token_kind(&self, kind: TokenKind) -> bool {
+        self.reader
+            .peek()
+            .map(|token| token.kind == kind)
+            .unwrap_or(false)
     }
 }
 
