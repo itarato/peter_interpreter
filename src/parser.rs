@@ -1,7 +1,7 @@
-use log::error;
+use log::{debug, error};
 
 use crate::{
-    ast::{AstExpression, AstStatement, AstStatementList, AstValue, BinaryOp, UnaryOp},
+    ast::{AstExpression, AstFn, AstStatement, AstStatementList, AstValue, BinaryOp, UnaryOp},
     common::Reader,
     token::{Token, TokenKind},
 };
@@ -191,6 +191,38 @@ impl<'a> Parser<'a> {
                     })
                 }
 
+                TokenKind::Fun => {
+                    self.reader.pop(); // fun
+
+                    let name_token = self.pop_and_assert(&TokenKind::Identifier)?;
+
+                    self.reader.pop(); // left paren
+
+                    let mut args = vec![];
+                    if !self.is_next_token_kind(TokenKind::RightParen) {
+                        loop {
+                            let arg_token = self.pop_and_assert(&TokenKind::Identifier)?;
+                            args.push(arg_token.lexeme.to_string());
+
+                            if self.is_next_token_kind(TokenKind::RightParen) {
+                                break;
+                            }
+
+                            self.pop_and_assert(&TokenKind::Comma)?;
+                        }
+                    }
+
+                    self.pop_and_assert(&TokenKind::RightParen)?;
+
+                    let body = self.parse_statement(false)?;
+
+                    Ok(AstStatement::FnDef(AstFn {
+                        name: name_token.lexeme.to_string(),
+                        args,
+                        body: Box::new(body),
+                    }))
+                }
+
                 _ => {
                     return Err(ParsingError {
                         token: Some(token),
@@ -299,7 +331,7 @@ impl<'a> Parser<'a> {
                         }
                     }
 
-                    self.pop_and_assert(&TokenKind::RightParen);
+                    self.pop_and_assert(&TokenKind::RightParen)?;
 
                     Ok(AstExpression::FnCall { name, args })
                 } else {

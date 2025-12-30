@@ -16,6 +16,10 @@
 //      | if
 //      | if-else
 
+use std::usize;
+
+use log::debug;
+
 use crate::{common::Error, token::TokenKind, vm::VM};
 
 #[derive(Debug, PartialEq)]
@@ -504,18 +508,53 @@ impl AstExpression {
                 None => Err(format!("Error: missing variable declaration for <{}>", name).into()),
             },
 
-            Self::FnCall { name, args } => {
-                unimplemented!()
-            }
+            Self::FnCall { name, args } => match vm.load_fn(name) {
+                Some(ast_fn) => ast_fn.eval(vm, args),
+                None => Err(format!("Error: function <{}> not found", name).into()),
+            },
         }
     }
 }
 
 #[derive(Debug)]
 pub(crate) struct AstFn {
-    name: String,
-    args: Vec<String>,
-    body: AstStatementList,
+    pub(crate) name: String,
+    pub(crate) args: Vec<String>,
+    pub(crate) body: Box<AstStatement>,
+}
+
+impl AstFn {
+    fn eval<'a>(
+        &'a self,
+        vm: &mut VM<'a>,
+        args_input: &Vec<AstExpression>,
+    ) -> Result<AstValue, Error> {
+        if self.args.len() != args_input.len() {
+            return Err(format!(
+                "Error: Argument count mismatch. Expected {} got {}.",
+                self.args.len(),
+                args_input.len()
+            )
+            .into());
+        }
+
+        let values = args_input
+            .iter()
+            .map(|expr| expr.eval(vm))
+            .collect::<Vec<_>>();
+
+        vm.push_scope();
+
+        for (name, value_result) in self.args.iter().zip(values) {
+            vm.establish_variable(name.to_string(), value_result?);
+        }
+
+        let result = self.body.eval(vm)?;
+
+        vm.pop_scope();
+
+        Ok(result.unwrap_or(AstValue::Nil { line: usize::MAX }))
+    }
 }
 
 #[derive(Debug)]
@@ -586,7 +625,7 @@ impl AstStatement {
         }
     }
 
-    fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
+    fn eval<'a>(&'a self, vm: &mut VM<'a>) -> Result<Option<AstValue>, Error> {
         match self {
             Self::Expr(expr) => expr.eval(vm).map(|v| Some(v)),
             Self::Print(expr) => {
@@ -666,8 +705,9 @@ impl AstStatement {
 
                 Ok(last_result)
             }
-            Self::FnDef(AstFn { name, args, body }) => {
-                unimplemented!()
+            Self::FnDef(fn_def) => {
+                vm.establish_fn(fn_def);
+                Ok(None)
             }
         }
     }
@@ -692,7 +732,7 @@ impl AstStatementList {
             .join("\n")
     }
 
-    pub(crate) fn eval(&self, vm: &mut VM) -> Result<Option<AstValue>, Error> {
+    pub(crate) fn eval<'a>(&'a self, vm: &mut VM<'a>) -> Result<Option<AstValue>, Error> {
         let mut last_result = None;
 
         for stmt in &self.0 {

@@ -4,12 +4,12 @@ use crate::{
     vm::VM,
 };
 
-pub(crate) struct Interpreter {
+pub(crate) struct Interpreter<'a> {
     statements: AstStatementList,
-    vm: VM,
+    vm: VM<'a>,
 }
 
-impl Interpreter {
+impl<'a> Interpreter<'a> {
     pub(crate) fn new(statements: AstStatementList) -> Self {
         Self {
             statements,
@@ -17,7 +17,7 @@ impl Interpreter {
         }
     }
 
-    pub(crate) fn evaluate(&mut self) -> Result<Option<AstValue>, Error> {
+    pub(crate) fn evaluate(&'a mut self) -> Result<Option<AstValue>, Error> {
         self.statements.eval(&mut self.vm)
     }
 }
