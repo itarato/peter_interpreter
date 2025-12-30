@@ -417,10 +417,19 @@ impl AstExpression {
                         value: lhs.truthy_value() && rhs.truthy_value(),
                         line: lhs.line(),
                     }),
-                    (lhs, rhs, BinaryOp::Or) => Ok(AstValue::Boolean {
-                        value: lhs.truthy_value() || rhs.truthy_value(),
-                        line: lhs.line(),
-                    }),
+                    (lhs, rhs, BinaryOp::Or) => {
+                        let value = if lhs.truthy_value() {
+                            lhs
+                        } else if rhs.truthy_value() {
+                            rhs
+                        } else {
+                            AstValue::Boolean {
+                                value: false,
+                                line: lhs.line(),
+                            }
+                        };
+                        Ok(value)
+                    }
 
                     (lhs, rhs, BinaryOp::EqualEqual) => Ok(AstValue::Boolean {
                         value: lhs == rhs,
