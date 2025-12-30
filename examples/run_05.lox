@@ -1,8 +1,13 @@
-var x = 10;
+var x;
 
 {
-    var x = 20;
+    x = 10;
     print x;
 }
 
 print x;
+x = 20;
+
+{
+    print x;
+}

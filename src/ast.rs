@@ -16,7 +16,11 @@
 //      | if
 //      | if-else
 
-use crate::{common::Error, token::TokenKind, vm::VM};
+use crate::{
+    common::Error,
+    token::{self, TokenKind},
+    vm::VM,
+};
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum BinaryOp {
@@ -258,7 +262,7 @@ impl AstExpression {
                     match &**lhs_expr {
                         AstExpression::Identifier { name } => {
                             let rhs_v = rhs_expr.eval(vm)?;
-                            vm.store_variable(name.clone(), rhs_v.clone());
+                            vm.update_variable(name.clone(), rhs_v.clone())?;
                             return Ok(rhs_v);
                         }
                         _ => {
@@ -498,7 +502,7 @@ impl AstStatement {
             }
             Self::VarAssignment(name, expr) => {
                 let value = expr.eval(vm)?;
-                vm.store_variable(name.clone(), value);
+                vm.establish_variable(name.clone(), value);
                 Ok(None)
             }
             Self::Block(statements) => {
