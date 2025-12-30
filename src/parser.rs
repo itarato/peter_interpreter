@@ -93,7 +93,10 @@ impl<'a> Parser<'a> {
                     let expr = if self.is_next_token_kind(TokenKind::Semicolon) {
                         self.reader.pop(); // semicolon
                         AstExpression::Literal {
-                            value: AstValue::Nil { line: token.line },
+                            value: AstValue::Nil {
+                                line: token.line,
+                                is_return: false,
+                            },
                         }
                     } else {
                         self.pop_and_assert(&TokenKind::Equal)?;
@@ -295,28 +298,35 @@ impl<'a> Parser<'a> {
                 value: AstValue::Str {
                     value: s.clone(),
                     line: token.line,
+                    is_return: false,
                 },
             }),
             TokenKind::Number(n) => Ok(AstExpression::Literal {
                 value: AstValue::Number {
                     value: *n,
                     line: token.line,
+                    is_return: false,
                 },
             }),
             TokenKind::True => Ok(AstExpression::Literal {
                 value: AstValue::Boolean {
                     value: true,
                     line: token.line,
+                    is_return: false,
                 },
             }),
             TokenKind::False => Ok(AstExpression::Literal {
                 value: AstValue::Boolean {
                     value: false,
                     line: token.line,
+                    is_return: false,
                 },
             }),
             TokenKind::Nil => Ok(AstExpression::Literal {
-                value: AstValue::Nil { line: token.line },
+                value: AstValue::Nil {
+                    line: token.line,
+                    is_return: false,
+                },
             }),
             TokenKind::Identifier => {
                 if self.is_next_token_kind(TokenKind::LeftParen) {

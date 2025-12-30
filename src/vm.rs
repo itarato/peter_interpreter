@@ -8,15 +8,23 @@ use crate::{
 pub(crate) struct Scope {
     vars: HashMap<String, AstValue>,
     functions: HashMap<String, Rc<AstFn>>,
-    is_soft: bool,
+    is_local_scope: bool,
 }
 
 impl Scope {
-    fn new_soft() -> Self {
+    fn new_local_scope() -> Self {
         Self {
             vars: HashMap::new(),
             functions: HashMap::new(),
-            is_soft: true,
+            is_local_scope: true,
+        }
+    }
+
+    fn new_function_scope() -> Self {
+        Self {
+            vars: HashMap::new(),
+            functions: HashMap::new(),
+            is_local_scope: false,
         }
     }
 }
@@ -28,7 +36,7 @@ pub(crate) struct VM {
 impl VM {
     pub(crate) fn new() -> Self {
         Self {
-            scope_stack: vec![Scope::new_soft()],
+            scope_stack: vec![Scope::new_local_scope()],
         }
     }
 
@@ -38,7 +46,7 @@ impl VM {
                 return scope.vars.get(name);
             }
 
-            if !scope.is_soft {
+            if !scope.is_local_scope {
                 break;
             }
         }
@@ -61,7 +69,7 @@ impl VM {
                 return Ok(());
             }
 
-            if !scope.is_soft {
+            if !scope.is_local_scope {
                 break;
             }
         }
@@ -69,8 +77,12 @@ impl VM {
         Err(format!("Error: variable not found in any scope: {}", name).into())
     }
 
-    pub(crate) fn push_scope(&mut self) {
-        self.scope_stack.push(Scope::new_soft());
+    pub(crate) fn push_local_scope(&mut self) {
+        self.scope_stack.push(Scope::new_local_scope());
+    }
+
+    pub(crate) fn push_function_scope(&mut self) {
+        self.scope_stack.push(Scope::new_function_scope());
     }
 
     pub(crate) fn pop_scope(&mut self) {
@@ -88,6 +100,7 @@ impl VM {
             fn_def.name.clone(),
             AstValue::FnRef {
                 function: fn_def.clone(),
+                is_return: false,
             },
         );
     }
@@ -96,12 +109,12 @@ impl VM {
         for scope in self.scope_stack.iter().rev() {
             if scope.vars.contains_key(name) {
                 match scope.vars.get(name).unwrap() {
-                    AstValue::FnRef { function } => return Some(function.clone()),
+                    AstValue::FnRef { function, .. } => return Some(function.clone()),
                     _ => continue,
                 }
             }
 
-            if !scope.is_soft {
+            if !scope.is_local_scope {
                 break;
             }
         }
@@ -123,7 +136,7 @@ impl VM {
                         break scope.functions.get(name).cloned();
                     }
 
-                    if !scope.is_soft {
+                    if !scope.is_local_scope {
                         break None;
                     }
                 }
@@ -154,11 +167,16 @@ impl VM {
                                 .unwrap()
                                 .as_secs_f64(),
                             line: usize::MAX,
+                            is_return: false,
                         })
                     }
                 }
                 _ => Err(format!("Error: Function <{}> not found.", name).into()),
             },
         }
+    }
+
+    pub(crate) fn is_in_function_scope(&self) -> bool {
+        self.scope_stack.iter().any(|scope| !scope.is_local_scope)
     }
 }

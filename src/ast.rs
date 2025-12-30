@@ -116,21 +116,62 @@ impl UnaryOp {
 
 #[derive(Debug, Clone)]
 pub(crate) enum AstValue {
-    Str { value: String, line: usize },
-    Number { value: f64, line: usize },
-    Boolean { value: bool, line: usize },
-    Nil { line: usize },
-    FnRef { function: Rc<AstFn> },
+    Str {
+        value: String,
+        line: usize,
+        is_return: bool,
+    },
+    Number {
+        value: f64,
+        line: usize,
+        is_return: bool,
+    },
+    Boolean {
+        value: bool,
+        line: usize,
+        is_return: bool,
+    },
+    Nil {
+        line: usize,
+        is_return: bool,
+    },
+    FnRef {
+        function: Rc<AstFn>,
+        is_return: bool,
+    },
 }
 
 impl AstValue {
+    pub(crate) fn as_return_value(mut self) -> Self {
+        match &mut self {
+            Self::Boolean { is_return, .. } => *is_return = true,
+            Self::Nil { is_return, .. } => *is_return = true,
+            Self::Number { is_return, .. } => *is_return = true,
+            Self::Str { is_return, .. } => *is_return = true,
+            Self::FnRef { is_return, .. } => *is_return = true,
+        };
+
+        self
+    }
+    pub(crate) fn as_non_return_value(mut self) -> Self {
+        match &mut self {
+            Self::Boolean { is_return, .. } => *is_return = false,
+            Self::Nil { is_return, .. } => *is_return = false,
+            Self::Number { is_return, .. } => *is_return = false,
+            Self::Str { is_return, .. } => *is_return = false,
+            Self::FnRef { is_return, .. } => *is_return = false,
+        };
+
+        self
+    }
+
     fn dump(&self) -> String {
         match self {
             Self::Str { value, .. } => value.clone(),
             Self::Number { value, .. } => format!("{:?}", value),
             Self::Boolean { value, .. } => format!("{:?}", value),
             Self::Nil { .. } => String::from("nil"),
-            Self::FnRef { function } => format!("<fn {}>", function.name),
+            Self::FnRef { function, .. } => format!("<fn {}>", function.name),
         }
     }
 
@@ -140,7 +181,7 @@ impl AstValue {
             Self::Number { value, .. } => format!("{}", value),
             Self::Boolean { value, .. } => format!("{}", value),
             Self::Nil { .. } => String::from("nil"),
-            Self::FnRef { function } => format!("<fn {}>", function.name),
+            Self::FnRef { function, .. } => format!("<fn {}>", function.name),
         }
     }
 
@@ -157,10 +198,20 @@ impl AstValue {
     pub(crate) fn line(&self) -> usize {
         match self {
             Self::Boolean { line, .. } => *line,
-            Self::Nil { line } => *line,
+            Self::Nil { line, .. } => *line,
             Self::Number { line, .. } => *line,
             Self::Str { line, .. } => *line,
             Self::FnRef { .. } => usize::MAX,
+        }
+    }
+
+    pub(crate) fn is_return(&self) -> bool {
+        match self {
+            Self::Boolean { is_return, .. } => *is_return,
+            Self::Nil { is_return, .. } => *is_return,
+            Self::Number { is_return, .. } => *is_return,
+            Self::Str { is_return, .. } => *is_return,
+            Self::FnRef { is_return, .. } => *is_return,
         }
     }
 }
@@ -328,150 +379,237 @@ impl AstExpression {
 
                 match (lhs_v, rhs_v, op) {
                     (
-                        AstValue::Number { value: lhs, line },
+                        AstValue::Number {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Number { value: rhs, .. },
                         BinaryOp::Plus,
                     ) => Ok(AstValue::Number {
                         value: lhs + rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Number { value: lhs, line },
+                        AstValue::Number {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Number { value: rhs, .. },
                         BinaryOp::Minus,
                     ) => Ok(AstValue::Number {
                         value: lhs - rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Number { value: lhs, line },
+                        AstValue::Number {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Number { value: rhs, .. },
                         BinaryOp::Star,
                     ) => Ok(AstValue::Number {
                         value: lhs * rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Number { value: lhs, line },
+                        AstValue::Number {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Number { value: rhs, .. },
                         BinaryOp::Slash,
                     ) => Ok(AstValue::Number {
                         value: lhs / rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Number { value: lhs, line },
+                        AstValue::Number {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Number { value: rhs, .. },
                         BinaryOp::EqualEqual,
                     ) => Ok(AstValue::Boolean {
                         value: lhs == rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Number { value: lhs, line },
+                        AstValue::Number {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Number { value: rhs, .. },
                         BinaryOp::BangEqual,
                     ) => Ok(AstValue::Boolean {
                         value: lhs != rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Number { value: lhs, line },
+                        AstValue::Number {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Number { value: rhs, .. },
                         BinaryOp::Less,
                     ) => Ok(AstValue::Boolean {
                         value: lhs < rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Number { value: lhs, line },
+                        AstValue::Number {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Number { value: rhs, .. },
                         BinaryOp::LessEqual,
                     ) => Ok(AstValue::Boolean {
                         value: lhs <= rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Number { value: lhs, line },
+                        AstValue::Number {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Number { value: rhs, .. },
                         BinaryOp::Greater,
                     ) => Ok(AstValue::Boolean {
                         value: lhs > rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Number { value: lhs, line },
+                        AstValue::Number {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Number { value: rhs, .. },
                         BinaryOp::GreaterEqual,
                     ) => Ok(AstValue::Boolean {
                         value: lhs >= rhs,
                         line,
+                        is_return,
                     }),
 
                     (
-                        AstValue::Str { value: lhs, line },
+                        AstValue::Str {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Str { value: rhs, .. },
                         BinaryOp::EqualEqual,
                     ) => Ok(AstValue::Boolean {
                         value: lhs == rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Str { value: lhs, line },
+                        AstValue::Str {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Str { value: rhs, .. },
                         BinaryOp::BangEqual,
                     ) => Ok(AstValue::Boolean {
                         value: lhs != rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Str { value: lhs, line },
+                        AstValue::Str {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Str { value: rhs, .. },
                         BinaryOp::Less,
                     ) => Ok(AstValue::Boolean {
                         value: lhs < rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Str { value: lhs, line },
+                        AstValue::Str {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Str { value: rhs, .. },
                         BinaryOp::LessEqual,
                     ) => Ok(AstValue::Boolean {
                         value: lhs <= rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Str { value: lhs, line },
+                        AstValue::Str {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Str { value: rhs, .. },
                         BinaryOp::Greater,
                     ) => Ok(AstValue::Boolean {
                         value: lhs > rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Str { value: lhs, line },
+                        AstValue::Str {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Str { value: rhs, .. },
                         BinaryOp::GreaterEqual,
                     ) => Ok(AstValue::Boolean {
                         value: lhs >= rhs,
                         line,
+                        is_return,
                     }),
                     (
-                        AstValue::Str { value: lhs, line },
+                        AstValue::Str {
+                            value: lhs,
+                            line,
+                            is_return,
+                        },
                         AstValue::Str { value: rhs, .. },
                         BinaryOp::Plus,
                     ) => Ok(AstValue::Str {
                         value: lhs + &rhs,
                         line,
+                        is_return,
                     }),
 
                     (lhs, rhs, BinaryOp::EqualEqual) => Ok(AstValue::Boolean {
                         value: lhs == rhs,
                         line: lhs.line(),
+                        is_return: lhs.is_return(),
                     }),
                     (lhs, rhs, BinaryOp::BangEqual) => Ok(AstValue::Boolean {
                         value: lhs != rhs,
                         line: lhs.line(),
+                        is_return: lhs.is_return(),
                     }),
 
                     (other_lhs, other_rhs, other_op) => Err(format!(
@@ -487,9 +625,14 @@ impl AstExpression {
 
             Self::Unary { op, expr } => match op {
                 UnaryOp::Minus => match expr.eval(vm)? {
-                    AstValue::Number { value, line } => Ok(AstValue::Number {
+                    AstValue::Number {
+                        value,
+                        line,
+                        is_return,
+                    } => Ok(AstValue::Number {
                         value: -value,
                         line,
+                        is_return,
                     }),
                     other => Err(format!("Error: expected number, got: {:?}", other).into()),
                 },
@@ -498,6 +641,7 @@ impl AstExpression {
                     Ok(AstValue::Boolean {
                         value: !value.truthy_value(),
                         line: value.line(),
+                        is_return: value.is_return(),
                     })
                 }
             },
@@ -543,17 +687,23 @@ impl AstFn {
             .map(|expr| expr.eval(vm))
             .collect::<Vec<_>>();
 
-        vm.push_scope();
+        vm.push_function_scope();
 
         for (name, value_result) in self.args.iter().zip(values) {
             vm.establish_variable(name.to_string(), value_result?);
         }
 
-        let result = self.body.eval(vm)?;
+        let result = self
+            .body
+            .eval(vm)?
+            .map(|result| result.as_non_return_value());
 
         vm.pop_scope();
 
-        Ok(result.unwrap_or(AstValue::Nil { line: usize::MAX }))
+        Ok(result.unwrap_or(AstValue::Nil {
+            line: usize::MAX,
+            is_return: false,
+        }))
     }
 }
 
@@ -579,9 +729,17 @@ pub(crate) enum AstStatement {
         block: Box<AstStatement>,
     },
     FnDef(Rc<AstFn>),
+    Return(AstExpression),
 }
 
 impl AstStatement {
+    fn is_return(&self) -> bool {
+        match self {
+            Self::Return(_) => true,
+            _ => false,
+        }
+    }
+
     fn dump(&self) -> String {
         match self {
             Self::Expr(expr) => expr.dump(),
@@ -627,6 +785,7 @@ impl AstStatement {
                     fn_def.body.dump()
                 )
             }
+            Self::Return(expr) => format!("return {}", expr.dump()),
         }
     }
 
@@ -644,17 +803,11 @@ impl AstStatement {
                 Ok(None)
             }
             Self::Block(statements) => {
-                vm.push_scope();
-
-                let mut last_result = None;
-
-                for stmt in &statements.0 {
-                    last_result = stmt.eval(vm)?;
-                }
-
+                vm.push_local_scope();
+                let result = statements.eval(vm)?;
                 vm.pop_scope();
 
-                Ok(last_result)
+                Ok(result)
             }
             Self::If {
                 cond,
@@ -714,6 +867,7 @@ impl AstStatement {
                 vm.establish_fn(fn_def.clone());
                 Ok(None)
             }
+            Self::Return(expr) => expr.eval(vm).map(|result| Some(result)),
         }
     }
 
@@ -742,6 +896,23 @@ impl AstStatementList {
 
         for stmt in &self.0 {
             last_result = stmt.eval(vm)?;
+
+            if stmt.is_return() {
+                if !vm.is_in_function_scope() {
+                    return Err("Error: return found in a non function scope".into());
+                } else {
+                    return Ok(last_result.map(|result| result.as_return_value()));
+                }
+            }
+
+            // If a nested scope triggers a return - let's pass it up.
+            if last_result
+                .as_ref()
+                .map(|result| result.is_return())
+                .unwrap_or(false)
+            {
+                return Ok(last_result);
+            }
         }
 
         Ok(last_result)
