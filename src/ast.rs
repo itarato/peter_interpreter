@@ -18,7 +18,7 @@
 
 use crate::{common::Error, token::TokenKind, vm::VM};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum BinaryOp {
     And,
     Or,
@@ -32,6 +32,7 @@ pub(crate) enum BinaryOp {
     GreaterEqual,
     EqualEqual,
     BangEqual,
+    Equal,
 }
 
 impl BinaryOp {
@@ -49,6 +50,7 @@ impl BinaryOp {
             TokenKind::GreaterEqual => Some(Self::GreaterEqual),
             TokenKind::EqualEqual => Some(Self::EqualEqual),
             TokenKind::BangEqual => Some(Self::BangEqual),
+            TokenKind::Equal => Some(Self::Equal),
             _ => None,
         }
     }
@@ -67,6 +69,7 @@ impl BinaryOp {
             Self::GreaterEqual => ">=".into(),
             Self::EqualEqual => "==".into(),
             Self::BangEqual => "!=".into(),
+            Self::Equal => "=".into(),
         }
     }
 
@@ -88,6 +91,8 @@ impl BinaryOp {
             Self::And => 4,
 
             Self::Or => 3,
+
+            Self::Equal => 0,
         }
     }
 }
@@ -202,7 +207,10 @@ impl AstExpression {
                     lhs_expr: lhs_lhs_expr,
                     rhs_expr: lhs_rhs_expr,
                 } => {
-                    if lhs_op.precedence() < rhs_op.precedence() {
+                    if lhs_op.precedence() < rhs_op.precedence()
+                        || (lhs_op.precedence() == 0 && rhs_op.precedence() == 0)
+                    // This is a hack to make assignment work.
+                    {
                         AstExpression::Binary {
                             op: lhs_op,
                             lhs_expr: lhs_lhs_expr,
@@ -246,6 +254,23 @@ impl AstExpression {
                 lhs_expr,
                 rhs_expr,
             } => {
+                if op == &BinaryOp::Equal {
+                    match &**lhs_expr {
+                        AstExpression::Identifier { name } => {
+                            let rhs_v = rhs_expr.eval(vm)?;
+                            vm.store_variable(name.clone(), rhs_v.clone());
+                            return Ok(rhs_v);
+                        }
+                        _ => {
+                            return Err(format!(
+                                "Error: expected identifier before assignment, got: {:?}",
+                                lhs_expr
+                            )
+                            .into());
+                        }
+                    }
+                }
+
                 let lhs_v = lhs_expr.eval(vm)?;
                 let rhs_v = rhs_expr.eval(vm)?;
 
