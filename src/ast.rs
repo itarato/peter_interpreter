@@ -506,10 +506,7 @@ impl AstExpression {
                 None => Err(format!("Error: missing variable declaration for <{}>", name).into()),
             },
 
-            Self::FnCall { name, args } => match vm.load_fn(name) {
-                Some(ast_fn) => ast_fn.eval(vm, args),
-                None => Err(format!("Error: function <{}> not found", name).into()),
-            },
+            Self::FnCall { name, args } => vm.eval_fn(name, args),
         }
     }
 }
@@ -522,7 +519,7 @@ pub(crate) struct AstFn {
 }
 
 impl AstFn {
-    fn eval<'a>(
+    pub(crate) fn eval<'a>(
         &'a self,
         vm: &mut VM<'a>,
         args_input: &Vec<AstExpression>,

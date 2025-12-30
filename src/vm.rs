@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, usize};
 
 use crate::{
-    ast::{AstFn, AstValue},
+    ast::{AstExpression, AstFn, AstValue},
     common::Error,
 };
 
@@ -85,17 +85,52 @@ impl<'a> VM<'a> {
             .insert(fn_def.name.clone(), fn_def);
     }
 
-    pub(crate) fn load_fn(&mut self, name: &str) -> Option<&&'a AstFn> {
-        for scope in self.scope_stack.iter().rev() {
-            if scope.functions.contains_key(name) {
-                return scope.functions.get(name);
-            }
+    pub(crate) fn eval_fn(
+        &mut self,
+        name: &str,
+        args: &Vec<AstExpression>,
+    ) -> Result<AstValue, Error> {
+        let mut it = self.scope_stack.iter().rev();
 
-            if !scope.is_soft {
-                break;
+        let fn_def = loop {
+            match it.next() {
+                Some(scope) => {
+                    if scope.functions.contains_key(name) {
+                        break scope.functions.get(name);
+                    }
+
+                    if !scope.is_soft {
+                        break None;
+                    }
+                }
+                None => break None,
             }
+        };
+
+        match fn_def {
+            Some(fn_def) => {
+                return fn_def.eval(self, args);
+            }
+            None => match name {
+                "clock" => {
+                    if args.len() != 0 {
+                        Err(format!(
+                            "Err: Incorrect number of arguments for the method {}. Expected 0. Got: {}.",
+                            name,
+                            args.len()
+                        ).into())
+                    } else {
+                        Ok(AstValue::Number {
+                            value: std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis() as f64,
+                            line: usize::MAX,
+                        })
+                    }
+                }
+                _ => Err(format!("Error: Function <{}> not found.", name).into()),
+            },
         }
-
-        None
     }
 }

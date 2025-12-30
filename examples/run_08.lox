@@ -8,3 +8,5 @@ if (a = true) {
     print(a);
   print (a == true);
 }
+
+print clock();
