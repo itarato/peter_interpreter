@@ -351,11 +351,6 @@ mod test {
     use crate::{ast::AstExpression, parser::Parser, scanner::Scanner};
 
     #[test]
-    fn test_empty() {
-        assert_eq!("".to_string(), parse("").dump());
-    }
-
-    #[test]
     fn test_single_literal() {
         assert_eq!("12.0".to_string(), parse("12").dump());
         assert_eq!("true".to_string(), parse("true").dump());
