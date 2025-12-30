@@ -103,6 +103,27 @@ impl<'a> Parser<'a> {
                     Ok(AstStatement::Block(stmts))
                 }
 
+                TokenKind::If => {
+                    self.reader.pop(); // if
+                    self.pop_and_assert(&TokenKind::LeftParen)?;
+                    let cond = self.parse_expression()?;
+                    self.pop_and_assert(&TokenKind::RightParen)?;
+                    let then = self.parse_statement()?;
+
+                    let otherwise =
+                        if let Some(&TokenKind::Else) = self.reader.peek().map(|t| &t.kind) {
+                            self.reader.pop(); // else
+                            Some(Box::new(self.parse_statement()?))
+                        } else {
+                            None
+                        };
+
+                    Ok(AstStatement::If {
+                        cond,
+                        then: Box::new(then),
+                        otherwise,
+                    })
+                }
                 _ => {
                     return Err(ParsingError {
                         token: Some(token),

@@ -481,6 +481,11 @@ pub(crate) enum AstStatement {
     Print(AstExpression),
     VarAssignment(String, AstExpression),
     Block(AstStatementList),
+    If {
+        cond: AstExpression,
+        then: Box<AstStatement>,
+        otherwise: Option<Box<AstStatement>>,
+    },
 }
 
 impl AstStatement {
@@ -517,6 +522,21 @@ impl AstStatement {
                 vm.pop_scope();
 
                 Ok(last_result)
+            }
+            Self::If {
+                cond,
+                then,
+                otherwise,
+            } => {
+                if cond.eval(vm)?.truthy_value() {
+                    then.eval(vm)
+                } else {
+                    if let Some(otherwise) = otherwise {
+                        otherwise.eval(vm)
+                    } else {
+                        Ok(None)
+                    }
+                }
             }
         }
     }
