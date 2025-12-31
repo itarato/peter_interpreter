@@ -232,6 +232,14 @@ impl<'a> Parser<'a> {
                     })))
                 }
 
+                TokenKind::Return => {
+                    self.reader.pop(); // return
+                    let expr = self.parse_expression()?;
+                    self.pop_and_assert(&TokenKind::Semicolon)?;
+
+                    Ok(AstStatement::Return(expr))
+                }
+
                 _ => {
                     return Err(ParsingError {
                         token: Some(token),
@@ -336,7 +344,7 @@ impl<'a> Parser<'a> {
                     let mut args = vec![];
                     if !self.is_next_token_kind(TokenKind::RightParen) {
                         loop {
-                            let arg = self.parse_single_expression_unit()?;
+                            let arg = self.parse_expression()?;
                             args.push(arg);
 
                             if self.is_next_token_kind(TokenKind::RightParen) {

@@ -136,9 +136,9 @@ impl VM {
                         break scope.functions.get(name).cloned();
                     }
 
-                    if !scope.is_local_scope {
-                        break None;
-                    }
+                    // if !scope.is_local_scope {
+                    //     break None;
+                    // }
                 }
                 None => break None,
             }
