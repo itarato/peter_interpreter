@@ -45,10 +45,6 @@ impl VM {
             if scope.vars.contains_key(name) {
                 return scope.vars.get(name);
             }
-
-            if !scope.is_local_scope {
-                break;
-            }
         }
 
         None
@@ -105,74 +101,31 @@ impl VM {
         );
     }
 
-    fn lookup_fn_reference(&self, name: &str) -> Option<Rc<AstFn>> {
-        for scope in self.scope_stack.iter().rev() {
-            if scope.vars.contains_key(name) {
-                match scope.vars.get(name).unwrap() {
-                    AstValue::FnRef { function, .. } => return Some(function.clone()),
-                    _ => continue,
-                }
-            }
-
-            if !scope.is_local_scope {
-                break;
-            }
-        }
-
-        None
-    }
-
-    pub(crate) fn eval_fn(
+    pub(crate) fn eval_internal_fn(
         &mut self,
         name: &str,
         args: &Vec<AstExpression>,
     ) -> Result<AstValue, Error> {
-        let mut it = self.scope_stack.iter().rev();
-
-        let mut fn_def = loop {
-            match it.next() {
-                Some(scope) => {
-                    if scope.functions.contains_key(name) {
-                        break scope.functions.get(name).cloned();
-                    }
-
-                    // if !scope.is_local_scope {
-                    //     break None;
-                    // }
-                }
-                None => break None,
-            }
-        };
-
-        if let None = fn_def {
-            fn_def = self.lookup_fn_reference(name);
-        }
-
-        match fn_def {
-            Some(fn_def) => {
-                return fn_def.clone().eval(self, args);
-            }
-            None => match name {
-                "clock" => {
-                    if args.len() != 0 {
-                        Err(format!(
+        match name {
+            "clock" => {
+                if args.len() != 0 {
+                    Err(format!(
                             "Err: Incorrect number of arguments for the method {}. Expected 0. Got: {}.",
                             name,
                             args.len()
                         ).into())
-                    } else {
-                        Ok(AstValue::Number {
-                            value: std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_secs_f64(),
-                            line: usize::MAX,
-                            is_return: false,
-                        })
-                    }
+                } else {
+                    Ok(AstValue::Number {
+                        value: std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs_f64(),
+                        line: usize::MAX,
+                        is_return: false,
+                    })
                 }
-                _ => Err(format!("Error: Function <{}> not found.", name).into()),
-            },
+            }
+            _ => Err(format!("Error: Function <{}> not found.", name).into()),
         }
     }
 

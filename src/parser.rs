@@ -348,8 +348,16 @@ impl<'a> Parser<'a> {
                 },
             }),
             TokenKind::Identifier => {
-                if self.is_next_token_kind(TokenKind::LeftParen) {
-                    let name = token.lexeme.to_string();
+                let mut expr = AstExpression::Identifier {
+                    name: token.lexeme.to_string(),
+                };
+
+                // Wrap the identifier in FnCalls sequencially.
+                loop {
+                    if !self.is_next_token_kind(TokenKind::LeftParen) {
+                        break Ok(expr);
+                    }
+
                     self.reader.pop(); // left paren
 
                     let mut args = vec![];
@@ -368,11 +376,10 @@ impl<'a> Parser<'a> {
 
                     self.pop_and_assert(&TokenKind::RightParen)?;
 
-                    Ok(AstExpression::FnCall { name, args })
-                } else {
-                    Ok(AstExpression::Identifier {
-                        name: token.lexeme.to_string(),
-                    })
+                    expr = AstExpression::FnCall {
+                        caller: Box::new(expr),
+                        args,
+                    };
                 }
             }
 

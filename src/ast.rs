@@ -1,21 +1,3 @@
-// expression     → literal
-//                | unary
-//                | binary
-//                | grouping ;
-// literal        → NUMBER | STRING | "true" | "false" | "nil" ;
-// grouping       → "(" expression ")" ;
-// unary          → ( "-" | "!" ) expression ;
-// binary         → expression operator expression ;
-// operator       → "==" | "!=" | "<" | "<=" | ">" | ">="
-//                | "+"  | "-"  | "*" | "/" ;
-
-// program -> [statements]
-// statement ->
-//      | expression
-//      | function def
-//      | if
-//      | if-else
-
 use std::{rc::Rc, usize};
 
 use crate::{common::Error, token::TokenKind, vm::VM};
@@ -252,7 +234,7 @@ pub(crate) enum AstExpression {
         expr: Box<AstExpression>,
     },
     FnCall {
-        name: String,
+        caller: Box<AstExpression>,
         args: Vec<AstExpression>,
     },
 }
@@ -269,9 +251,9 @@ impl AstExpression {
             } => format!("({} {} {})", op.dump(), lhs_expr.dump(), rhs_expr.dump()),
             Self::Group { expr } => format!("(group {})", expr.dump()),
             Self::Identifier { name } => format!("{}", name),
-            Self::FnCall { name, args } => format!(
+            Self::FnCall { caller, args } => format!(
                 "{}({})",
-                name,
+                caller.dump(),
                 args.iter()
                     .map(|arg| arg.dump())
                     .collect::<Vec<_>>()
@@ -655,7 +637,21 @@ impl AstExpression {
                 None => Err(format!("Error: missing variable declaration for <{}>", name).into()),
             },
 
-            Self::FnCall { name, args } => vm.eval_fn(name, args),
+            Self::FnCall { caller, args } => {
+                match &**caller {
+                    AstExpression::Identifier { name } => {
+                        if name == "clock" {
+                            return vm.eval_internal_fn("clock", args);
+                        }
+                    }
+                    _ => {}
+                }
+
+                match caller.eval(vm)? {
+                    AstValue::FnRef { function, .. } => function.eval(vm, args),
+                    _ => Err(format!("Error: Invalid caller for a function: {:?}", caller).into()),
+                }
+            }
         }
     }
 }
