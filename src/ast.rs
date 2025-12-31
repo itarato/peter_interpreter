@@ -867,7 +867,7 @@ impl AstStatement {
                 vm.establish_fn(fn_def.clone());
                 Ok(None)
             }
-            Self::Return(expr) => expr.eval(vm).map(|result| Some(result)),
+            Self::Return(expr) => expr.eval(vm).map(|result| Some(result.as_return_value())),
         }
     }
 
@@ -901,7 +901,7 @@ impl AstStatementList {
                 if !vm.is_in_function_scope() {
                     return Err("Error: return found in a non function scope".into());
                 } else {
-                    return Ok(last_result.map(|result| result.as_return_value()));
+                    return Ok(last_result);
                 }
             }
 

@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{rc::Rc, usize};
 
 use log::error;
 
@@ -234,7 +234,18 @@ impl<'a> Parser<'a> {
 
                 TokenKind::Return => {
                     self.reader.pop(); // return
-                    let expr = self.parse_expression()?;
+
+                    let expr = if self.is_next_token_kind(TokenKind::Semicolon) {
+                        AstExpression::Literal {
+                            value: AstValue::Nil {
+                                line: usize::MAX,
+                                is_return: true,
+                            },
+                        }
+                    } else {
+                        self.parse_expression()?
+                    };
+
                     self.pop_and_assert(&TokenKind::Semicolon)?;
 
                     Ok(AstStatement::Return(expr))
