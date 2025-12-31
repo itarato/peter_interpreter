@@ -289,6 +289,42 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_single_expression_unit(&mut self) -> Result<AstExpression, ParsingError<'a>> {
+        let mut expr = self.parse_single_expression_unit_without_method_invocation()?;
+
+        // Wrap the expression in FnCalls sequencially.
+        loop {
+            if !self.is_next_token_kind(TokenKind::LeftParen) {
+                break Ok(expr);
+            }
+
+            self.reader.pop(); // left paren
+
+            let mut args = vec![];
+            if !self.is_next_token_kind(TokenKind::RightParen) {
+                loop {
+                    let arg = self.parse_expression()?;
+                    args.push(arg);
+
+                    if self.is_next_token_kind(TokenKind::RightParen) {
+                        break;
+                    }
+
+                    self.pop_and_assert(&TokenKind::Comma)?;
+                }
+            }
+
+            self.pop_and_assert(&TokenKind::RightParen)?;
+
+            expr = AstExpression::FnCall {
+                caller: Box::new(expr),
+                args,
+            };
+        }
+    }
+
+    fn parse_single_expression_unit_without_method_invocation(
+        &mut self,
+    ) -> Result<AstExpression, ParsingError<'a>> {
         let token = self.reader.pop().unwrap();
         match &token.kind {
             TokenKind::LeftParen => {
@@ -347,41 +383,9 @@ impl<'a> Parser<'a> {
                     is_return: false,
                 },
             }),
-            TokenKind::Identifier => {
-                let mut expr = AstExpression::Identifier {
-                    name: token.lexeme.to_string(),
-                };
-
-                // Wrap the identifier in FnCalls sequencially.
-                loop {
-                    if !self.is_next_token_kind(TokenKind::LeftParen) {
-                        break Ok(expr);
-                    }
-
-                    self.reader.pop(); // left paren
-
-                    let mut args = vec![];
-                    if !self.is_next_token_kind(TokenKind::RightParen) {
-                        loop {
-                            let arg = self.parse_expression()?;
-                            args.push(arg);
-
-                            if self.is_next_token_kind(TokenKind::RightParen) {
-                                break;
-                            }
-
-                            self.pop_and_assert(&TokenKind::Comma)?;
-                        }
-                    }
-
-                    self.pop_and_assert(&TokenKind::RightParen)?;
-
-                    expr = AstExpression::FnCall {
-                        caller: Box::new(expr),
-                        args,
-                    };
-                }
-            }
+            TokenKind::Identifier => Ok(AstExpression::Identifier {
+                name: token.lexeme.to_string(),
+            }),
 
             _ => Err(ParsingError {
                 token: Some(token),

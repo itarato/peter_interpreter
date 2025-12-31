@@ -22,7 +22,10 @@ mod vm;
 #[command(version, about, long_about = None)]
 struct ProgramArgs {
     command: String,
-    filename: String,
+    filename: Option<String>,
+
+    #[arg(short, long)]
+    code: Option<String>,
 }
 
 fn main() {
@@ -35,10 +38,16 @@ fn main() {
 
     let mut exit_code = EXIT_CODE_SUCCESS;
 
-    let file_contents = fs::read_to_string(&program_args.filename).unwrap_or_else(|_| {
-        error!("Failed to read file {}", program_args.filename);
-        String::new()
-    });
+    let file_contents = if let Some(filename) = program_args.filename {
+        fs::read_to_string(&filename).unwrap_or_else(|_| {
+            error!("Failed to read file {}", filename);
+            String::new()
+        })
+    } else if let Some(code) = program_args.code {
+        code
+    } else {
+        panic!("Missing both filename and code.");
+    };
 
     let tokens = match Scanner::new(&file_contents).scan() {
         Ok(tokens) => {
