@@ -833,6 +833,14 @@ impl AstStatement {
                     }
 
                     last_result = block.eval(vm)?;
+
+                    if last_result
+                        .as_ref()
+                        .map(|result| result.is_return())
+                        .unwrap_or(false)
+                    {
+                        break Ok(last_result);
+                    }
                 }
             }
             Self::For {
@@ -850,18 +858,24 @@ impl AstStatement {
                 loop {
                     if let Some(cond) = cond {
                         if !cond.eval(vm)?.truthy_value() {
-                            break;
+                            break Ok(last_result);
                         }
                     }
 
                     last_result = block.eval(vm)?;
 
+                    if last_result
+                        .as_ref()
+                        .map(|result| result.is_return())
+                        .unwrap_or(false)
+                    {
+                        break Ok(last_result);
+                    }
+
                     if let Some(post_op) = post_op {
                         post_op.eval(vm)?;
                     }
                 }
-
-                Ok(last_result)
             }
             Self::FnDef(fn_def) => {
                 vm.establish_fn(fn_def.clone());
