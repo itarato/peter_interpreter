@@ -64,10 +64,6 @@ impl VM {
                 *scope.vars.get_mut(&name).unwrap() = value;
                 return Ok(());
             }
-
-            if !scope.is_local_scope {
-                break;
-            }
         }
 
         Err(format!("Error: variable not found in any scope: {}", name).into())
