@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc, usize};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, usize};
 
 use crate::{
     ast::{AstExpression, AstFn, AstValue},
@@ -9,41 +9,73 @@ pub(crate) struct Scope {
     vars: HashMap<String, AstValue>,
     functions: HashMap<String, Rc<AstFn>>,
     is_local_scope: bool,
+    parent: Option<Rc<RefCell<Scope>>>,
 }
 
 impl Scope {
-    fn new_local_scope() -> Self {
+    fn new() -> Self {
         Self {
             vars: HashMap::new(),
             functions: HashMap::new(),
             is_local_scope: true,
+            parent: None,
         }
     }
 
-    fn new_function_scope() -> Self {
+    fn new_fn_scope() -> Self {
         Self {
             vars: HashMap::new(),
             functions: HashMap::new(),
             is_local_scope: false,
+            parent: None,
+        }
+    }
+}
+
+struct ScopeIter {
+    scope: Option<Rc<RefCell<Scope>>>,
+}
+
+impl Iterator for ScopeIter {
+    type Item = Rc<RefCell<Scope>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.scope.is_none() {
+            None
+        } else {
+            let current = self.scope.clone();
+
+            self.scope = {
+                let inner = self.scope.as_ref().unwrap().borrow();
+                inner.parent.clone()
+            };
+
+            current
         }
     }
 }
 
 pub(crate) struct VM {
-    scope_stack: Vec<Scope>,
+    current_scope: Rc<RefCell<Scope>>,
 }
 
 impl VM {
     pub(crate) fn new() -> Self {
         Self {
-            scope_stack: vec![Scope::new_local_scope()],
+            current_scope: Rc::new(RefCell::new(Scope::new())),
         }
     }
 
-    pub(crate) fn load_variable(&self, name: &str) -> Option<&AstValue> {
-        for scope in self.scope_stack.iter().rev() {
-            if scope.vars.contains_key(name) {
-                return scope.vars.get(name);
+    fn scope_iter(&self) -> ScopeIter {
+        ScopeIter {
+            scope: Some(self.current_scope.clone()),
+        }
+    }
+
+    pub(crate) fn load_variable(&self, name: &str) -> Option<AstValue> {
+        for scope in self.scope_iter() {
+            if scope.borrow().vars.contains_key(name) {
+                return scope.borrow().vars.get(name).cloned();
             }
         }
 
@@ -51,17 +83,13 @@ impl VM {
     }
 
     pub(crate) fn establish_variable(&mut self, name: String, value: AstValue) {
-        self.scope_stack
-            .last_mut()
-            .expect("Missing top stack")
-            .vars
-            .insert(name, value);
+        self.current_scope.borrow_mut().vars.insert(name, value);
     }
 
     pub(crate) fn update_variable(&mut self, name: String, value: AstValue) -> Result<(), Error> {
-        for scope in self.scope_stack.iter_mut().rev() {
-            if scope.vars.contains_key(&name) {
-                *scope.vars.get_mut(&name).unwrap() = value;
+        for scope in self.scope_iter() {
+            if scope.borrow().vars.contains_key(&name) {
+                *scope.borrow_mut().vars.get_mut(&name).unwrap() = value;
                 return Ok(());
             }
         }
@@ -70,25 +98,31 @@ impl VM {
     }
 
     pub(crate) fn push_local_scope(&mut self) {
-        self.scope_stack.push(Scope::new_local_scope());
+        let mut new_scope = Scope::new();
+        new_scope.parent = Some(self.current_scope.clone());
+        self.current_scope = Rc::new(RefCell::new(new_scope));
     }
 
     pub(crate) fn push_function_scope(&mut self) {
-        self.scope_stack.push(Scope::new_function_scope());
+        let mut new_scope = Scope::new_fn_scope();
+        new_scope.parent = Some(self.current_scope.clone());
+        self.current_scope = Rc::new(RefCell::new(new_scope));
     }
 
     pub(crate) fn pop_scope(&mut self) {
-        self.scope_stack.pop().unwrap();
+        self.current_scope = {
+            let inner = self.current_scope.borrow();
+            inner.parent.clone().unwrap()
+        };
     }
 
     pub(crate) fn establish_fn(&mut self, fn_def: Rc<AstFn>) {
-        self.scope_stack
-            .last_mut()
-            .unwrap()
+        self.current_scope
+            .borrow_mut()
             .functions
             .insert(fn_def.name.clone(), fn_def.clone());
 
-        self.scope_stack.last_mut().unwrap().vars.insert(
+        self.current_scope.borrow_mut().vars.insert(
             fn_def.name.clone(),
             AstValue::FnRef {
                 function: fn_def.clone(),
@@ -126,6 +160,7 @@ impl VM {
     }
 
     pub(crate) fn is_in_function_scope(&self) -> bool {
-        self.scope_stack.iter().any(|scope| !scope.is_local_scope)
+        self.scope_iter()
+            .any(|scope| !scope.borrow().is_local_scope)
     }
 }
