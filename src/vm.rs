@@ -56,19 +56,23 @@ impl Iterator for ScopeIter {
 }
 
 pub(crate) struct VM {
-    current_scope: Rc<RefCell<Scope>>,
+    scopes: Vec<Rc<RefCell<Scope>>>,
 }
 
 impl VM {
     pub(crate) fn new() -> Self {
         Self {
-            current_scope: Rc::new(RefCell::new(Scope::new())),
+            scopes: vec![Rc::new(RefCell::new(Scope::new()))],
         }
+    }
+
+    fn last_scope(&self) -> &Rc<RefCell<Scope>> {
+        self.scopes.last().unwrap()
     }
 
     fn scope_iter(&self) -> ScopeIter {
         ScopeIter {
-            scope: Some(self.current_scope.clone()),
+            scope: Some(self.last_scope().clone()),
         }
     }
 
@@ -83,7 +87,7 @@ impl VM {
     }
 
     pub(crate) fn establish_variable(&mut self, name: String, value: AstValue) {
-        self.current_scope.borrow_mut().vars.insert(name, value);
+        self.last_scope().borrow_mut().vars.insert(name, value);
     }
 
     pub(crate) fn update_variable(&mut self, name: String, value: AstValue) -> Result<(), Error> {
@@ -99,30 +103,47 @@ impl VM {
 
     pub(crate) fn push_local_scope(&mut self) {
         let mut new_scope = Scope::new();
-        new_scope.parent = Some(self.current_scope.clone());
-        self.current_scope = Rc::new(RefCell::new(new_scope));
+        new_scope.parent = Some(self.last_scope().clone());
+
+        self.scopes.pop();
+        self.scopes.push(Rc::new(RefCell::new(new_scope)));
     }
 
     pub(crate) fn push_function_scope(&mut self) {
         let mut new_scope = Scope::new_fn_scope();
-        new_scope.parent = Some(self.current_scope.clone());
-        self.current_scope = Rc::new(RefCell::new(new_scope));
+        new_scope.parent = Some(self.last_scope().clone());
+
+        self.scopes.pop();
+        self.scopes.push(Rc::new(RefCell::new(new_scope)));
     }
 
     pub(crate) fn pop_scope(&mut self) {
-        self.current_scope = {
-            let inner = self.current_scope.borrow();
+        let new_scope = {
+            let inner = self.last_scope().borrow();
             inner.parent.clone().unwrap()
         };
+
+        self.scopes.pop();
+        self.scopes.push(new_scope);
     }
 
+    // pub(crate) fn pop_function_scope(&mut self) {
+    //     let new_scope = {
+    //         let inner = self.last_scope().borrow();
+    //         inner.parent.clone().unwrap()
+    //     };
+
+    //     self.scopes.pop();
+    //     self.scopes.push(new_scope);
+    // }
+
     pub(crate) fn establish_fn(&mut self, fn_def: Rc<AstFn>) {
-        self.current_scope
+        self.last_scope()
             .borrow_mut()
             .functions
             .insert(fn_def.name.clone(), fn_def.clone());
 
-        self.current_scope.borrow_mut().vars.insert(
+        self.last_scope().borrow_mut().vars.insert(
             fn_def.name.clone(),
             AstValue::FnRef {
                 function: fn_def.clone(),
