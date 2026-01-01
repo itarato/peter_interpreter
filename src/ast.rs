@@ -1,6 +1,10 @@
-use std::{rc::Rc, usize};
+use std::{cell::RefCell, rc::Rc, usize};
 
-use crate::{common::Error, token::TokenKind, vm::VM};
+use crate::{
+    common::Error,
+    token::TokenKind,
+    vm::{Scope, VM},
+};
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum BinaryOp {
@@ -120,6 +124,7 @@ pub(crate) enum AstValue {
     FnRef {
         function: Rc<AstFn>,
         is_return: bool,
+        scope: Rc<RefCell<Scope>>,
     },
 }
 
@@ -648,7 +653,9 @@ impl AstExpression {
                 }
 
                 match caller.eval(vm)? {
-                    AstValue::FnRef { function, .. } => function.eval(vm, args),
+                    AstValue::FnRef {
+                        function, scope, ..
+                    } => function.eval(vm, args, scope),
                     _ => Err(format!("Error: Invalid caller for a function: {:?}", caller).into()),
                 }
             }
@@ -668,6 +675,7 @@ impl AstFn {
         &'a self,
         vm: &mut VM,
         args_input: &Vec<AstExpression>,
+        scope: Rc<RefCell<Scope>>,
     ) -> Result<AstValue, Error> {
         if self.args.len() != args_input.len() {
             return Err(format!(
@@ -683,7 +691,7 @@ impl AstFn {
             .map(|expr| expr.eval(vm))
             .collect::<Vec<_>>();
 
-        vm.push_function_scope();
+        vm.push_function_scope(scope);
 
         for (name, value_result) in self.args.iter().zip(values) {
             vm.establish_variable(name.to_string(), value_result?);
@@ -694,7 +702,7 @@ impl AstFn {
             .eval(vm)?
             .map(|result| result.as_non_return_value());
 
-        vm.pop_scope();
+        vm.pop_function_scope();
 
         Ok(result.unwrap_or(AstValue::Nil {
             line: usize::MAX,

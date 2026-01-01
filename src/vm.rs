@@ -5,9 +5,10 @@ use crate::{
     common::Error,
 };
 
+#[derive(Debug)]
 pub(crate) struct Scope {
     vars: HashMap<String, AstValue>,
-    functions: HashMap<String, Rc<AstFn>>,
+    functions: HashMap<String, (Rc<RefCell<Scope>>, Rc<AstFn>)>,
     is_local_scope: bool,
     parent: Option<Rc<RefCell<Scope>>>,
 }
@@ -109,11 +110,10 @@ impl VM {
         self.scopes.push(Rc::new(RefCell::new(new_scope)));
     }
 
-    pub(crate) fn push_function_scope(&mut self) {
+    pub(crate) fn push_function_scope(&mut self, scope: Rc<RefCell<Scope>>) {
         let mut new_scope = Scope::new_fn_scope();
-        new_scope.parent = Some(self.last_scope().clone());
+        new_scope.parent = Some(scope);
 
-        self.scopes.pop();
         self.scopes.push(Rc::new(RefCell::new(new_scope)));
     }
 
@@ -127,27 +127,22 @@ impl VM {
         self.scopes.push(new_scope);
     }
 
-    // pub(crate) fn pop_function_scope(&mut self) {
-    //     let new_scope = {
-    //         let inner = self.last_scope().borrow();
-    //         inner.parent.clone().unwrap()
-    //     };
-
-    //     self.scopes.pop();
-    //     self.scopes.push(new_scope);
-    // }
+    pub(crate) fn pop_function_scope(&mut self) {
+        self.scopes.pop();
+    }
 
     pub(crate) fn establish_fn(&mut self, fn_def: Rc<AstFn>) {
-        self.last_scope()
-            .borrow_mut()
-            .functions
-            .insert(fn_def.name.clone(), fn_def.clone());
+        self.last_scope().borrow_mut().functions.insert(
+            fn_def.name.clone(),
+            (self.last_scope().clone(), fn_def.clone()),
+        );
 
         self.last_scope().borrow_mut().vars.insert(
             fn_def.name.clone(),
             AstValue::FnRef {
                 function: fn_def.clone(),
                 is_return: false,
+                scope: self.last_scope().clone(),
             },
         );
     }
