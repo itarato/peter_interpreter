@@ -9,7 +9,6 @@ struct VarData {
     value: AstValue,
     // Auto increment id. Marking creation order.
     id: u64,
-    is_declared: bool,
 }
 
 #[derive(Debug)]
@@ -118,10 +117,6 @@ impl VM {
                     continue;
                 }
 
-                if !scope_ref.is_global() && !var_data.is_declared {
-                    return None;
-                }
-
                 return Some(var_data.value.clone());
             }
 
@@ -153,7 +148,6 @@ impl VM {
                         is_return: false,
                     },
                     id,
-                    is_declared: false,
                 },
             );
 
@@ -165,7 +159,6 @@ impl VM {
         let mut scope = self.last_scope().borrow_mut();
         let var_data = scope.vars.get_mut(name).unwrap();
         var_data.value = value;
-        var_data.is_declared = true;
     }
 
     pub(crate) fn update_variable(&mut self, name: String, value: AstValue) -> Result<(), Error> {
@@ -238,7 +231,6 @@ impl VM {
                     scope_barrier: id,
                 },
                 id,
-                is_declared: true,
             },
         );
     }
