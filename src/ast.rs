@@ -717,8 +717,7 @@ impl AstFn {
         vm.push_function_scope(scope, scope_barrier);
 
         for (name, value_result) in self.args.iter().zip(values) {
-            vm.allocate_variable(name.to_string())?;
-            vm.establish_init_variable_value(name, value_result?);
+            vm.declare_variable(name.to_string(), value_result?);
         }
 
         let result = self
@@ -826,9 +825,8 @@ impl AstStatement {
                 Ok(None)
             }
             Self::VarAssignment(name, expr) => {
-                vm.allocate_variable(name.clone())?;
                 let value = expr.eval(vm)?;
-                vm.establish_init_variable_value(name, value);
+                vm.declare_variable(name.clone(), value);
                 Ok(None)
             }
             Self::Block(statements) => {

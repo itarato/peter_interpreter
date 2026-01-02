@@ -1,6 +1,6 @@
 use std::{rc::Rc, usize};
 
-use log::{debug, error};
+use log::error;
 
 use crate::{
     ast::{AstExpression, AstFn, AstStatement, AstStatementList, AstValue, BinaryOp, UnaryOp},
