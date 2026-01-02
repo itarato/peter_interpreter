@@ -125,6 +125,7 @@ pub(crate) enum AstValue {
         function: Rc<AstFn>,
         is_return: bool,
         scope: Rc<RefCell<Scope>>,
+        scope_barrier: u64,
     },
 }
 
@@ -654,8 +655,11 @@ impl AstExpression {
 
                 match caller.eval(vm)? {
                     AstValue::FnRef {
-                        function, scope, ..
-                    } => function.eval(vm, args, scope),
+                        function,
+                        scope,
+                        scope_barrier,
+                        ..
+                    } => function.eval(vm, args, scope, scope_barrier),
                     _ => Err(format!("Error: Invalid caller for a function: {:?}", caller).into()),
                 }
             }
@@ -676,6 +680,7 @@ impl AstFn {
         vm: &mut VM,
         args_input: &Vec<AstExpression>,
         scope: Rc<RefCell<Scope>>,
+        scope_barrier: u64,
     ) -> Result<AstValue, Error> {
         if self.args.len() != args_input.len() {
             return Err(format!(
@@ -691,7 +696,7 @@ impl AstFn {
             .map(|expr| expr.eval(vm))
             .collect::<Vec<_>>();
 
-        vm.push_function_scope(scope);
+        vm.push_function_scope(scope, scope_barrier);
 
         for (name, value_result) in self.args.iter().zip(values) {
             vm.establish_variable(name.to_string(), value_result?);
