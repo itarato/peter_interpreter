@@ -108,13 +108,6 @@ impl<'a> Parser<'a> {
                         expr
                     };
 
-                    debug!(
-                        "VAR={} Scope={} Include={} Expr={:?}",
-                        &name,
-                        self.scope_level,
-                        expr.includes_identifier_in_scope(&name),
-                        &expr
-                    );
                     if self.scope_level > 0 && expr.includes_identifier_in_scope(&name) {
                         return Err(ParsingError {
                             token: Some(token),
