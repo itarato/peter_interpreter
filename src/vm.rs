@@ -105,8 +105,9 @@ impl VM {
         let mut max_allowed_var_id = u64::MAX;
 
         for scope in self.scope_iter() {
-            if scope.borrow().vars.contains_key(name) {
-                let scope_ref = scope.borrow();
+            let scope_ref = scope.borrow();
+
+            if scope_ref.vars.contains_key(name) {
                 let var_data = scope_ref.vars.get(name).unwrap();
                 if var_data.id > max_allowed_var_id {
                     continue;
@@ -115,8 +116,7 @@ impl VM {
                 return Some(var_data.value.clone());
             }
 
-            max_allowed_var_id =
-                max_allowed_var_id.min(scope.borrow().child_scope_max_allowed_var_id);
+            max_allowed_var_id = max_allowed_var_id.min(scope_ref.child_scope_max_allowed_var_id);
         }
 
         None
@@ -134,8 +134,9 @@ impl VM {
         let mut max_allowed_var_id = u64::MAX;
 
         for scope in self.scope_iter() {
-            if scope.borrow().vars.contains_key(&name) {
-                let mut scope_ref_mut = scope.borrow_mut();
+            let mut scope_ref_mut = scope.borrow_mut();
+
+            if scope_ref_mut.vars.contains_key(&name) {
                 let var_data = scope_ref_mut.vars.get_mut(&name).unwrap();
                 if var_data.id > max_allowed_var_id {
                     continue;
@@ -146,7 +147,7 @@ impl VM {
             }
 
             max_allowed_var_id =
-                max_allowed_var_id.min(scope.borrow().child_scope_max_allowed_var_id);
+                max_allowed_var_id.min(scope_ref_mut.child_scope_max_allowed_var_id);
         }
 
         Err(format!("Error: variable not found in any scope: {}", name).into())
