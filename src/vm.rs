@@ -9,6 +9,7 @@ struct VarData {
     value: AstValue,
     // Auto increment id. Marking creation order.
     id: u64,
+    is_declared: bool,
 }
 
 #[derive(Debug)]
@@ -46,6 +47,10 @@ impl Scope {
             parent: None,
             child_scope_max_allowed_var_id: scope_barrier,
         }
+    }
+
+    fn is_global(&self) -> bool {
+        self.parent.is_none()
     }
 }
 
@@ -113,6 +118,10 @@ impl VM {
                     continue;
                 }
 
+                if !scope_ref.is_global() && !var_data.is_declared {
+                    return None;
+                }
+
                 return Some(var_data.value.clone());
             }
 
@@ -122,12 +131,41 @@ impl VM {
         None
     }
 
-    pub(crate) fn establish_variable(&mut self, name: String, value: AstValue) {
-        let id = self.get_unique_id();
-        self.last_scope()
-            .borrow_mut()
-            .vars
-            .insert(name, VarData { value, id });
+    pub(crate) fn allocate_variable(&mut self, name: String) -> Result<(), Error> {
+        if self.last_scope().borrow_mut().vars.contains_key(&name) {
+            if self.last_scope().borrow().is_global() {
+                // Do nothing. Counts as an assignment.
+                Ok(())
+            } else {
+                return Err(format!(
+                    "Error: Variable <{}> already exist, cannot be redeclared.",
+                    &name
+                )
+                .into());
+            }
+        } else {
+            let id = self.get_unique_id();
+            self.last_scope().borrow_mut().vars.insert(
+                name,
+                VarData {
+                    value: AstValue::Nil {
+                        line: usize::MAX,
+                        is_return: false,
+                    },
+                    id,
+                    is_declared: false,
+                },
+            );
+
+            Ok(())
+        }
+    }
+
+    pub(crate) fn establish_init_variable_value(&mut self, name: &str, value: AstValue) {
+        let mut scope = self.last_scope().borrow_mut();
+        let var_data = scope.vars.get_mut(name).unwrap();
+        var_data.value = value;
+        var_data.is_declared = true;
     }
 
     pub(crate) fn update_variable(&mut self, name: String, value: AstValue) -> Result<(), Error> {
@@ -168,7 +206,7 @@ impl VM {
         self.scopes.push(Rc::new(RefCell::new(new_scope)));
     }
 
-    pub(crate) fn pop_scope(&mut self) {
+    pub(crate) fn pop_local_scope(&mut self) {
         let new_scope = {
             let inner = self.last_scope().borrow();
             inner.parent.clone().unwrap()
@@ -200,6 +238,7 @@ impl VM {
                     scope_barrier: id,
                 },
                 id,
+                is_declared: true,
             },
         );
     }

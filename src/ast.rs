@@ -665,6 +665,24 @@ impl AstExpression {
             }
         }
     }
+
+    pub(crate) fn includes_identifier_in_scope(&self, subject: &str) -> bool {
+        match self {
+            Self::Binary {
+                lhs_expr, rhs_expr, ..
+            } => {
+                lhs_expr.includes_identifier_in_scope(subject)
+                    || rhs_expr.includes_identifier_in_scope(subject)
+            }
+            Self::FnCall { args, .. } => args
+                .iter()
+                .any(|arg| arg.includes_identifier_in_scope(subject)),
+            Self::Group { .. } => false,
+            AstExpression::Identifier { name } => name == subject,
+            AstExpression::Literal { .. } => false,
+            AstExpression::Unary { expr, .. } => expr.includes_identifier_in_scope(subject),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -699,7 +717,8 @@ impl AstFn {
         vm.push_function_scope(scope, scope_barrier);
 
         for (name, value_result) in self.args.iter().zip(values) {
-            vm.establish_variable(name.to_string(), value_result?);
+            vm.allocate_variable(name.to_string())?;
+            vm.establish_init_variable_value(name, value_result?);
         }
 
         let result = self
@@ -807,14 +826,15 @@ impl AstStatement {
                 Ok(None)
             }
             Self::VarAssignment(name, expr) => {
+                vm.allocate_variable(name.clone())?;
                 let value = expr.eval(vm)?;
-                vm.establish_variable(name.clone(), value);
+                vm.establish_init_variable_value(name, value);
                 Ok(None)
             }
             Self::Block(statements) => {
                 vm.push_local_scope();
                 let result = statements.eval(vm)?;
-                vm.pop_scope();
+                vm.pop_local_scope();
 
                 Ok(result)
             }
@@ -860,6 +880,8 @@ impl AstStatement {
             } => {
                 let mut last_result = None;
 
+                vm.push_local_scope();
+
                 if let Some(init) = init {
                     init.eval(vm)?;
                 }
@@ -867,7 +889,7 @@ impl AstStatement {
                 loop {
                     if let Some(cond) = cond {
                         if !cond.eval(vm)?.truthy_value() {
-                            break Ok(last_result);
+                            break;
                         }
                     }
 
@@ -878,13 +900,17 @@ impl AstStatement {
                         .map(|result| result.is_return())
                         .unwrap_or(false)
                     {
-                        break Ok(last_result);
+                        break;
                     }
 
                     if let Some(post_op) = post_op {
                         post_op.eval(vm)?;
                     }
                 }
+
+                vm.pop_local_scope();
+
+                Ok(last_result)
             }
             Self::FnDef(fn_def) => {
                 vm.establish_fn(fn_def.clone());

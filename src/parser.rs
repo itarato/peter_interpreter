@@ -1,6 +1,6 @@
 use std::{rc::Rc, usize};
 
-use log::error;
+use log::{debug, error};
 
 use crate::{
     ast::{AstExpression, AstFn, AstStatement, AstStatementList, AstValue, BinaryOp, UnaryOp},
@@ -16,12 +16,15 @@ pub(crate) struct ParsingError<'a> {
 
 pub(crate) struct Parser<'a> {
     reader: Reader<'a, Token<'a>>,
+    // This is static scope, not the same as runtime scope.
+    scope_level: u64,
 }
 
 impl<'a> Parser<'a> {
     pub(crate) fn new(tokens: &'a [Token]) -> Self {
         Self {
             reader: Reader::new(tokens),
+            scope_level: 0,
         }
     }
 
@@ -105,12 +108,35 @@ impl<'a> Parser<'a> {
                         expr
                     };
 
+                    debug!(
+                        "VAR={} Scope={} Include={} Expr={:?}",
+                        &name,
+                        self.scope_level,
+                        expr.includes_identifier_in_scope(&name),
+                        &expr
+                    );
+                    if self.scope_level > 0 && expr.includes_identifier_in_scope(&name) {
+                        return Err(ParsingError {
+                            token: Some(token),
+                            msg: format!(
+                                "Error: Can't read local variable <{}> in its own initializer.",
+                                &name
+                            ),
+                        });
+                    }
+
                     Ok(AstStatement::VarAssignment(name, expr))
                 }
 
                 TokenKind::LeftBrace => {
                     self.reader.pop(); // left brace
+
+                    self.scope_level += 1;
+
                     let stmts = self.parse_statement_list()?;
+
+                    self.scope_level -= 1;
+
                     self.pop_and_assert(&TokenKind::RightBrace)?;
                     Ok(AstStatement::Block(stmts))
                 }
@@ -221,7 +247,11 @@ impl<'a> Parser<'a> {
 
                     self.pop_and_assert(&TokenKind::LeftBrace)?;
 
+                    self.scope_level += 1;
+
                     let body = self.parse_statement_list()?;
+
+                    self.scope_level -= 1;
 
                     self.pop_and_assert(&TokenKind::RightBrace)?;
 
