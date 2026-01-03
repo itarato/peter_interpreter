@@ -11,6 +11,7 @@ use crate::{
 
 mod ast;
 mod common;
+mod inspector;
 mod interpreter;
 mod parser;
 mod scanner;

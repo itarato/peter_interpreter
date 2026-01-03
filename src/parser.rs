@@ -5,6 +5,7 @@ use log::error;
 use crate::{
     ast::{AstExpression, AstFn, AstStatement, AstStatementList, AstValue, BinaryOp, UnaryOp},
     common::Reader,
+    inspector::Inspector,
     token::{Token, TokenKind},
 };
 
@@ -16,15 +17,14 @@ pub(crate) struct ParsingError<'a> {
 
 pub(crate) struct Parser<'a> {
     reader: Reader<'a, Token<'a>>,
-    // This is static scope, not the same as runtime scope.
-    scope_level: u64,
+    inspector: Inspector,
 }
 
 impl<'a> Parser<'a> {
     pub(crate) fn new(tokens: &'a [Token]) -> Self {
         Self {
             reader: Reader::new(tokens),
-            scope_level: 0,
+            inspector: Inspector::new(),
         }
     }
 
@@ -108,7 +108,8 @@ impl<'a> Parser<'a> {
                         expr
                     };
 
-                    if self.scope_level > 0 && expr.includes_identifier_in_scope(&name) {
+                    if !self.inspector.is_global_scope() && expr.includes_identifier_in_scope(&name)
+                    {
                         return Err(ParsingError {
                             token: Some(token),
                             msg: format!(
@@ -124,11 +125,11 @@ impl<'a> Parser<'a> {
                 TokenKind::LeftBrace => {
                     self.reader.pop(); // left brace
 
-                    self.scope_level += 1;
+                    self.inspector.enter_scope();
 
                     let stmts = self.parse_statement_list()?;
 
-                    self.scope_level -= 1;
+                    self.inspector.leave_scope();
 
                     self.pop_and_assert(&TokenKind::RightBrace)?;
                     Ok(AstStatement::Block(stmts))
@@ -240,11 +241,11 @@ impl<'a> Parser<'a> {
 
                     self.pop_and_assert(&TokenKind::LeftBrace)?;
 
-                    self.scope_level += 1;
+                    self.inspector.enter_scope();
 
                     let body = self.parse_statement_list()?;
 
-                    self.scope_level -= 1;
+                    self.inspector.leave_scope();
 
                     self.pop_and_assert(&TokenKind::RightBrace)?;
 
