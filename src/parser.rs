@@ -119,6 +119,13 @@ impl<'a> Parser<'a> {
                         });
                     }
 
+                    self.inspector
+                        .declare_variable(name.clone())
+                        .map_err(|err| ParsingError {
+                            msg: err.to_string(),
+                            token: Some(token),
+                        })?;
+
                     Ok(AstStatement::VarAssignment(name, expr))
                 }
 
@@ -174,6 +181,8 @@ impl<'a> Parser<'a> {
                     self.reader.pop(); // for
                     self.pop_and_assert(&TokenKind::LeftParen)?;
 
+                    self.inspector.enter_scope();
+
                     let init = if self.is_next_token_kind(TokenKind::Semicolon) {
                         self.reader.pop(); // semicolon
                         None
@@ -207,6 +216,8 @@ impl<'a> Parser<'a> {
                             msg: "Error: cannot have variable assignment at a <for> block.".into(),
                         });
                     }
+
+                    self.inspector.leave_scope();
 
                     Ok(AstStatement::For {
                         init,
@@ -242,6 +253,15 @@ impl<'a> Parser<'a> {
                     self.pop_and_assert(&TokenKind::LeftBrace)?;
 
                     self.inspector.enter_scope();
+
+                    for arg in &args {
+                        self.inspector
+                            .declare_variable(arg.clone())
+                            .map_err(|err| ParsingError {
+                                msg: err.to_string(),
+                                token: Some(token),
+                            })?;
+                    }
 
                     let body = self.parse_statement_list()?;
 
