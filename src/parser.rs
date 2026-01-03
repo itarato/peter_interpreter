@@ -263,8 +263,11 @@ impl<'a> Parser<'a> {
                             })?;
                     }
 
+                    self.inspector.enter_fn_scope();
+
                     let body = self.parse_statement_list()?;
 
+                    self.inspector.leave_fn_scope();
                     self.inspector.leave_scope();
 
                     self.pop_and_assert(&TokenKind::RightBrace)?;
@@ -277,6 +280,13 @@ impl<'a> Parser<'a> {
                 }
 
                 TokenKind::Return => {
+                    if !self.inspector.is_fn_scope() {
+                        return Err(ParsingError {
+                            token: Some(token),
+                            msg: "Error: Return in a non function scope.".into(),
+                        });
+                    }
+
                     self.reader.pop(); // return
 
                     let expr = if self.is_next_token_kind(TokenKind::Semicolon) {

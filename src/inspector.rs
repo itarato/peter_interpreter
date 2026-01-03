@@ -4,6 +4,7 @@ use crate::common::Error;
 
 pub(crate) struct Inspector {
     static_scope_level: u64,
+    static_fn_scope_level: u64,
     declared_scope_vars: Vec<HashSet<String>>,
 }
 
@@ -11,6 +12,7 @@ impl Inspector {
     pub(crate) fn new() -> Self {
         Self {
             static_scope_level: 0,
+            static_fn_scope_level: 0,
             declared_scope_vars: vec![HashSet::new()],
         }
     }
@@ -25,8 +27,20 @@ impl Inspector {
         self.declared_scope_vars.pop();
     }
 
+    pub(crate) fn enter_fn_scope(&mut self) {
+        self.static_fn_scope_level += 1;
+    }
+
+    pub(crate) fn leave_fn_scope(&mut self) {
+        self.static_fn_scope_level -= 1;
+    }
+
     pub(crate) fn is_global_scope(&self) -> bool {
         self.static_scope_level == 0
+    }
+
+    pub(crate) fn is_fn_scope(&self) -> bool {
+        self.static_fn_scope_level > 0
     }
 
     pub(crate) fn declare_variable(&mut self, name: String) -> Result<(), Error> {
