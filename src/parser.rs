@@ -3,7 +3,9 @@ use std::{rc::Rc, usize};
 use log::error;
 
 use crate::{
-    ast::{AstExpression, AstFn, AstStatement, AstStatementList, AstValue, BinaryOp, UnaryOp},
+    ast::{
+        AstClass, AstExpression, AstFn, AstStatement, AstStatementList, AstValue, BinaryOp, UnaryOp,
+    },
     common::Reader,
     inspector::Inspector,
     token::{Token, TokenKind},
@@ -303,6 +305,19 @@ impl<'a> Parser<'a> {
                     self.pop_and_assert(&TokenKind::Semicolon)?;
 
                     Ok(AstStatement::Return(expr))
+                }
+
+                TokenKind::Class => {
+                    self.reader.pop(); // class
+
+                    let name = self.pop_and_assert(&TokenKind::Identifier)?;
+
+                    self.pop_and_assert(&TokenKind::LeftBrace)?;
+                    self.pop_and_assert(&TokenKind::RightBrace)?;
+
+                    Ok(AstStatement::ClassDef(Rc::new(AstClass {
+                        name: name.lexeme.to_string(),
+                    })))
                 }
 
                 _ => {

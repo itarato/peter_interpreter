@@ -127,6 +127,10 @@ pub(crate) enum AstValue {
         scope: Rc<RefCell<Scope>>,
         scope_barrier: u64,
     },
+    ClassRef {
+        class: Rc<AstClass>,
+        is_return: bool,
+    },
 }
 
 impl AstValue {
@@ -137,6 +141,7 @@ impl AstValue {
             Self::Number { is_return, .. } => *is_return = true,
             Self::Str { is_return, .. } => *is_return = true,
             Self::FnRef { is_return, .. } => *is_return = true,
+            Self::ClassRef { is_return, .. } => *is_return = true,
         };
 
         self
@@ -148,6 +153,7 @@ impl AstValue {
             Self::Number { is_return, .. } => *is_return = false,
             Self::Str { is_return, .. } => *is_return = false,
             Self::FnRef { is_return, .. } => *is_return = false,
+            Self::ClassRef { is_return, .. } => *is_return = false,
         };
 
         self
@@ -160,6 +166,7 @@ impl AstValue {
             Self::Boolean { value, .. } => format!("{:?}", value),
             Self::Nil { .. } => String::from("nil"),
             Self::FnRef { function, .. } => format!("<fn {}>", function.name),
+            Self::ClassRef { class, .. } => class.name.clone(),
         }
     }
 
@@ -170,6 +177,7 @@ impl AstValue {
             Self::Boolean { value, .. } => format!("{}", value),
             Self::Nil { .. } => String::from("nil"),
             Self::FnRef { function, .. } => format!("<fn {}>", function.name),
+            Self::ClassRef { class, .. } => class.name.clone(),
         }
     }
 
@@ -180,6 +188,7 @@ impl AstValue {
             Self::Nil { .. } => false,
             Self::Number { value, .. } => *value != 0.0,
             Self::FnRef { .. } => true,
+            Self::ClassRef { .. } => true,
         }
     }
 
@@ -190,6 +199,7 @@ impl AstValue {
             Self::Number { line, .. } => *line,
             Self::Str { line, .. } => *line,
             Self::FnRef { .. } => usize::MAX,
+            Self::ClassRef { .. } => usize::MAX,
         }
     }
 
@@ -200,6 +210,7 @@ impl AstValue {
             Self::Number { is_return, .. } => *is_return,
             Self::Str { is_return, .. } => *is_return,
             Self::FnRef { is_return, .. } => *is_return,
+            Self::ClassRef { is_return, .. } => *is_return,
         }
     }
 }
@@ -735,6 +746,11 @@ impl AstFn {
 }
 
 #[derive(Debug)]
+pub(crate) struct AstClass {
+    pub(crate) name: String,
+}
+
+#[derive(Debug)]
 pub(crate) enum AstStatement {
     Expr(AstExpression),
     Print(AstExpression),
@@ -757,6 +773,7 @@ pub(crate) enum AstStatement {
     },
     FnDef(Rc<AstFn>),
     Return(AstExpression),
+    ClassDef(Rc<AstClass>),
 }
 
 impl AstStatement {
@@ -813,6 +830,7 @@ impl AstStatement {
                 )
             }
             Self::Return(expr) => format!("return {}", expr.dump()),
+            Self::ClassDef(class) => class.name.clone(),
         }
     }
 
@@ -915,6 +933,10 @@ impl AstStatement {
                 Ok(None)
             }
             Self::Return(expr) => expr.eval(vm).map(|result| Some(result.as_return_value())),
+            Self::ClassDef(class) => {
+                vm.establish_class(class.clone());
+                Ok(None)
+            }
         }
     }
 

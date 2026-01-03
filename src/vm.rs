@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AstExpression, AstFn, AstValue},
+    ast::{AstClass, AstExpression, AstFn, AstValue},
     common::Error,
 };
 use std::{cell::RefCell, collections::HashMap, rc::Rc, u64, usize};
@@ -25,6 +25,7 @@ pub(crate) struct Scope {
     is_local_scope: bool,
     parent: Option<Rc<RefCell<Scope>>>,
     child_scope_max_allowed_var_id: u64,
+    classes: HashMap<String, Rc<AstClass>>,
 }
 
 impl Scope {
@@ -35,6 +36,7 @@ impl Scope {
             is_local_scope: true,
             parent: None,
             child_scope_max_allowed_var_id: u64::MAX,
+            classes: HashMap::new(),
         }
     }
 
@@ -45,6 +47,7 @@ impl Scope {
             is_local_scope: false,
             parent: None,
             child_scope_max_allowed_var_id: scope_barrier,
+            classes: HashMap::new(),
         }
     }
 }
@@ -198,6 +201,26 @@ impl VM {
                     is_return: false,
                     scope: self.last_scope().clone(),
                     scope_barrier: id,
+                },
+                id,
+            },
+        );
+    }
+
+    pub(crate) fn establish_class(&mut self, class_def: Rc<AstClass>) {
+        let id = self.get_unique_id();
+
+        self.last_scope()
+            .borrow_mut()
+            .classes
+            .insert(class_def.name.clone(), class_def.clone());
+
+        self.last_scope().borrow_mut().vars.insert(
+            class_def.name.clone(),
+            VarData {
+                value: AstValue::ClassRef {
+                    class: class_def.clone(),
+                    is_return: false,
                 },
                 id,
             },
