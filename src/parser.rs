@@ -384,7 +384,7 @@ impl<'a> Parser<'a> {
 
             self.pop_and_assert(&TokenKind::RightParen)?;
 
-            expr = AstExpression::FnCall {
+            expr = AstExpression::ExprCall {
                 caller: Box::new(expr),
                 args,
             };

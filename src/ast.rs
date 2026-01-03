@@ -131,6 +131,10 @@ pub(crate) enum AstValue {
         class: Rc<AstClass>,
         is_return: bool,
     },
+    ClassInstance {
+        class: Rc<AstClass>,
+        is_return: bool,
+    },
 }
 
 impl AstValue {
@@ -142,6 +146,7 @@ impl AstValue {
             Self::Str { is_return, .. } => *is_return = true,
             Self::FnRef { is_return, .. } => *is_return = true,
             Self::ClassRef { is_return, .. } => *is_return = true,
+            Self::ClassInstance { is_return, .. } => *is_return = true,
         };
 
         self
@@ -154,6 +159,7 @@ impl AstValue {
             Self::Str { is_return, .. } => *is_return = false,
             Self::FnRef { is_return, .. } => *is_return = false,
             Self::ClassRef { is_return, .. } => *is_return = false,
+            Self::ClassInstance { is_return, .. } => *is_return = false,
         };
 
         self
@@ -167,6 +173,7 @@ impl AstValue {
             Self::Nil { .. } => String::from("nil"),
             Self::FnRef { function, .. } => format!("<fn {}>", function.name),
             Self::ClassRef { class, .. } => class.name.clone(),
+            Self::ClassInstance { class, .. } => format!("{} instance", class.name),
         }
     }
 
@@ -178,6 +185,7 @@ impl AstValue {
             Self::Nil { .. } => String::from("nil"),
             Self::FnRef { function, .. } => format!("<fn {}>", function.name),
             Self::ClassRef { class, .. } => class.name.clone(),
+            Self::ClassInstance { class, .. } => format!("{} instance", class.name),
         }
     }
 
@@ -189,6 +197,7 @@ impl AstValue {
             Self::Number { value, .. } => *value != 0.0,
             Self::FnRef { .. } => true,
             Self::ClassRef { .. } => true,
+            Self::ClassInstance { .. } => true,
         }
     }
 
@@ -200,6 +209,7 @@ impl AstValue {
             Self::Str { line, .. } => *line,
             Self::FnRef { .. } => usize::MAX,
             Self::ClassRef { .. } => usize::MAX,
+            Self::ClassInstance { .. } => usize::MAX,
         }
     }
 
@@ -211,6 +221,7 @@ impl AstValue {
             Self::Str { is_return, .. } => *is_return,
             Self::FnRef { is_return, .. } => *is_return,
             Self::ClassRef { is_return, .. } => *is_return,
+            Self::ClassInstance { is_return, .. } => *is_return,
         }
     }
 }
@@ -250,7 +261,7 @@ pub(crate) enum AstExpression {
     Group {
         expr: Box<AstExpression>,
     },
-    FnCall {
+    ExprCall {
         caller: Box<AstExpression>,
         args: Vec<AstExpression>,
     },
@@ -268,7 +279,7 @@ impl AstExpression {
             } => format!("({} {} {})", op.dump(), lhs_expr.dump(), rhs_expr.dump()),
             Self::Group { expr } => format!("(group {})", expr.dump()),
             Self::Identifier { name } => format!("{}", name),
-            Self::FnCall { caller, args } => format!(
+            Self::ExprCall { caller, args } => format!(
                 "{}({})",
                 caller.dump(),
                 args.iter()
@@ -654,7 +665,7 @@ impl AstExpression {
                 None => Err(format!("Error: missing variable declaration for <{}>", name).into()),
             },
 
-            Self::FnCall { caller, args } => {
+            Self::ExprCall { caller, args } => {
                 match &**caller {
                     AstExpression::Identifier { name } => {
                         if name == "clock" {
@@ -671,6 +682,10 @@ impl AstExpression {
                         scope_barrier,
                         ..
                     } => function.eval(vm, args, scope, scope_barrier),
+                    AstValue::ClassRef { class, .. } => Ok(AstValue::ClassInstance {
+                        class: class.clone(),
+                        is_return: false,
+                    }),
                     _ => Err(format!("Error: Invalid caller for a function: {:?}", caller).into()),
                 }
             }
@@ -685,7 +700,7 @@ impl AstExpression {
                 lhs_expr.includes_identifier_in_scope(subject)
                     || rhs_expr.includes_identifier_in_scope(subject)
             }
-            Self::FnCall { args, .. } => args
+            Self::ExprCall { args, .. } => args
                 .iter()
                 .any(|arg| arg.includes_identifier_in_scope(subject)),
             Self::Group { .. } => false,
