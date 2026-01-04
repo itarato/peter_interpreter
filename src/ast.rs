@@ -1,5 +1,7 @@
 use std::{cell::RefCell, rc::Rc, usize};
 
+use log::debug;
+
 use crate::{
     common::Error,
     token::TokenKind,
@@ -705,44 +707,38 @@ impl AstExpression {
                     _ => {}
                 }
 
-                match caller.eval(vm)? {
-                    AstValue::FnRef {
-                        function,
-                        scope,
-                        scope_barrier,
-                        ..
-                    } => function.eval(vm, args, scope, scope_barrier),
-                    AstValue::ClassRef { class, scope, .. } => {
-                        let instance_id = vm.get_unique_id();
-                        Ok(AstValue::ClassInstance {
-                            class: class.clone(),
-                            is_return: false,
-                            scope: Rc::new(RefCell::new(Scope::new_fn_scope_with_parent(
-                                instance_id,
-                                scope.clone(),
-                            ))),
-                        })
-                    }
-                    _ => Err(format!("Error: Invalid caller for a function: {:?}", caller).into()),
-                }
+                let caller_value = caller.eval(vm)?;
+                evaluate_expr_call(vm, caller_value, args)
             }
 
             Self::Nesting { context, suffix } => match context.eval(vm)? {
-                AstValue::ClassInstance { class, scope, .. } => match &**suffix {
-                    AstExpression::Identifier { name } => {
-                        match vm.load_variable_from_scope(name, &scope) {
-                            Some(value) => Ok(value),
-                            None => Err(format!(
-                                "Error: missing instance variable {} from class {}",
-                                name, class.name
-                            )
-                            .into()),
+                AstValue::ClassInstance { class, scope, .. } => {
+                    debug!("Got class instance: {}", class.name);
+                    let result = match &**suffix {
+                        AstExpression::Identifier { name } => {
+                            match vm.load_variable_from_scope(name, &scope) {
+                                Some(value) => Ok(value),
+                                None => Err(format!(
+                                    "Error: missing instance variable {} from class {}",
+                                    name, class.name
+                                )
+                                .into()),
+                            }
                         }
-                    }
-                    other => {
-                        Err(format!("Error: Invalid suffix for nested call: {:?}", other).into())
-                    }
-                },
+                        AstExpression::ExprCall { caller, args } => {
+                            vm.push_scope(scope);
+                            let caller_value = caller.eval(vm)?;
+                            vm.pop_scope();
+
+                            evaluate_expr_call(vm, caller_value, args)
+                        }
+                        other => Err(
+                            format!("Error: Invalid suffix for nested call: {:?}", other).into(),
+                        ),
+                    };
+
+                    result
+                }
                 other => Err(format!("Error: Invalid prefix for nested call: {:?}", other).into()),
             },
         }
@@ -800,6 +796,33 @@ impl AstExpression {
             }
             other => other,
         }
+    }
+}
+
+fn evaluate_expr_call(
+    vm: &mut VM,
+    caller_value: AstValue,
+    args: &Vec<AstExpression>,
+) -> Result<AstValue, Error> {
+    match caller_value {
+        AstValue::FnRef {
+            function,
+            scope,
+            scope_barrier,
+            ..
+        } => function.eval(vm, args, scope, scope_barrier),
+        AstValue::ClassRef { class, scope, .. } => {
+            let instance_id = vm.get_unique_id();
+            Ok(AstValue::ClassInstance {
+                class: class.clone(),
+                is_return: false,
+                scope: Rc::new(RefCell::new(Scope::new_fn_scope_with_parent(
+                    instance_id,
+                    scope.clone(),
+                ))),
+            })
+        }
+        _ => Err(format!("Error: Invalid caller for a function: {:?}", caller_value).into()),
     }
 }
 

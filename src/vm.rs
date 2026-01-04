@@ -1,3 +1,5 @@
+use log::debug;
+
 use crate::{
     ast::{AstClass, AstExpression, AstFn, AstValue},
     common::Error,
@@ -59,6 +61,14 @@ impl Scope {
             parent: Some(parent),
             child_scope_max_allowed_var_id: scope_barrier,
             classes: HashMap::new(),
+        }
+    }
+
+    fn depth(&self) -> usize {
+        if self.parent.is_none() {
+            1
+        } else {
+            1 + self.parent.as_ref().unwrap().borrow().depth()
         }
     }
 }
@@ -220,21 +230,38 @@ impl VM {
         self.scopes.pop();
     }
 
+    pub(crate) fn push_scope(&mut self, scope: Rc<RefCell<Scope>>) {
+        self.scopes.push(scope);
+    }
+
+    pub(crate) fn pop_scope(&mut self) {
+        self.scopes.pop();
+    }
+
     pub(crate) fn establish_fn(&mut self, fn_def: Rc<AstFn>) {
+        self.establish_fn_in_scope(fn_def, &self.current_scope().clone());
+    }
+
+    pub(crate) fn establish_fn_in_scope(&mut self, fn_def: Rc<AstFn>, scope: &Rc<RefCell<Scope>>) {
+        debug!(
+            "Register fn: {} Scope size: {}",
+            fn_def.name,
+            scope.borrow().depth()
+        );
         let id = self.get_unique_id();
 
-        self.current_scope().borrow_mut().functions.insert(
-            fn_def.name.clone(),
-            (self.current_scope().clone(), fn_def.clone(), id),
-        );
+        scope
+            .borrow_mut()
+            .functions
+            .insert(fn_def.name.clone(), (scope.clone(), fn_def.clone(), id));
 
-        self.current_scope().borrow_mut().vars.insert(
+        scope.borrow_mut().vars.insert(
             fn_def.name.clone(),
             VarData {
                 value: AstValue::FnRef {
                     function: fn_def.clone(),
                     is_return: false,
-                    scope: self.current_scope().clone(),
+                    scope: scope.clone(),
                     scope_barrier: id,
                 },
                 id,
@@ -254,17 +281,23 @@ impl VM {
             .classes
             .insert(class_def.name.clone(), class_def.clone());
 
+        let scope = Rc::new(RefCell::new(class_scope));
+
         self.current_scope().borrow_mut().vars.insert(
             class_def.name.clone(),
             VarData {
                 value: AstValue::ClassRef {
                     class: class_def.clone(),
                     is_return: false,
-                    scope: Rc::new(RefCell::new(class_scope)),
+                    scope: scope.clone(),
                 },
                 id,
             },
         );
+
+        for function in &class_def.functions {
+            self.establish_fn_in_scope(function.clone(), &scope);
+        }
     }
 
     pub(crate) fn eval_internal_fn(
