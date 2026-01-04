@@ -50,6 +50,17 @@ impl Scope {
             classes: HashMap::new(),
         }
     }
+
+    pub(crate) fn new_fn_scope_with_parent(scope_barrier: u64, parent: Rc<RefCell<Scope>>) -> Self {
+        Self {
+            vars: HashMap::new(),
+            functions: HashMap::new(),
+            is_local_scope: false,
+            parent: Some(parent),
+            child_scope_max_allowed_var_id: scope_barrier,
+            classes: HashMap::new(),
+        }
+    }
 }
 
 struct ScopeIter {
@@ -88,26 +99,40 @@ impl VM {
         }
     }
 
-    fn get_unique_id(&mut self) -> u64 {
+    pub(crate) fn get_unique_id(&mut self) -> u64 {
         let id = self.id_provider;
         self.id_provider += 1;
         id
     }
 
-    fn last_scope(&self) -> &Rc<RefCell<Scope>> {
+    pub(crate) fn current_scope(&self) -> &Rc<RefCell<Scope>> {
         self.scopes.last().unwrap()
     }
 
     fn scope_iter(&self) -> ScopeIter {
         ScopeIter {
-            scope: Some(self.last_scope().clone()),
+            scope: Some(self.current_scope().clone()),
+        }
+    }
+
+    fn make_scope_iter(scope: &Rc<RefCell<Scope>>) -> ScopeIter {
+        ScopeIter {
+            scope: Some(scope.clone()),
         }
     }
 
     pub(crate) fn load_variable(&self, name: &str) -> Option<AstValue> {
+        self.load_variable_from_scope(name, &self.current_scope())
+    }
+
+    pub(crate) fn load_variable_from_scope(
+        &self,
+        name: &str,
+        scope: &Rc<RefCell<Scope>>,
+    ) -> Option<AstValue> {
         let mut max_allowed_var_id = u64::MAX;
 
-        for scope in self.scope_iter() {
+        for scope in Self::make_scope_iter(scope) {
             let scope_ref = scope.borrow();
 
             if scope_ref.vars.contains_key(name) {
@@ -127,10 +152,20 @@ impl VM {
 
     pub(crate) fn declare_variable(&mut self, name: String, value: AstValue) {
         let id = self.get_unique_id();
-        self.last_scope()
+        self.current_scope()
             .borrow_mut()
             .vars
             .insert(name, VarData { value, id });
+    }
+
+    pub(crate) fn declare_instance_variable(
+        &mut self,
+        scope: &Rc<RefCell<Scope>>,
+        name: String,
+        value: AstValue,
+    ) {
+        let id = self.get_unique_id();
+        scope.borrow_mut().vars.insert(name, VarData { value, id });
     }
 
     pub(crate) fn update_variable(&mut self, name: String, value: AstValue) -> Result<(), Error> {
@@ -158,7 +193,7 @@ impl VM {
 
     pub(crate) fn push_local_scope(&mut self) {
         let mut new_scope = Scope::new();
-        new_scope.parent = Some(self.last_scope().clone());
+        new_scope.parent = Some(self.current_scope().clone());
 
         self.scopes.pop();
         self.scopes.push(Rc::new(RefCell::new(new_scope)));
@@ -173,7 +208,7 @@ impl VM {
 
     pub(crate) fn pop_local_scope(&mut self) {
         let new_scope = {
-            let inner = self.last_scope().borrow();
+            let inner = self.current_scope().borrow();
             inner.parent.clone().unwrap()
         };
 
@@ -188,18 +223,18 @@ impl VM {
     pub(crate) fn establish_fn(&mut self, fn_def: Rc<AstFn>) {
         let id = self.get_unique_id();
 
-        self.last_scope().borrow_mut().functions.insert(
+        self.current_scope().borrow_mut().functions.insert(
             fn_def.name.clone(),
-            (self.last_scope().clone(), fn_def.clone(), id),
+            (self.current_scope().clone(), fn_def.clone(), id),
         );
 
-        self.last_scope().borrow_mut().vars.insert(
+        self.current_scope().borrow_mut().vars.insert(
             fn_def.name.clone(),
             VarData {
                 value: AstValue::FnRef {
                     function: fn_def.clone(),
                     is_return: false,
-                    scope: self.last_scope().clone(),
+                    scope: self.current_scope().clone(),
                     scope_barrier: id,
                 },
                 id,
@@ -210,17 +245,22 @@ impl VM {
     pub(crate) fn establish_class(&mut self, class_def: Rc<AstClass>) {
         let id = self.get_unique_id();
 
-        self.last_scope()
+        // TODO: Review is fn-scope is appropriate. Likely it is - and `fn-` should be renamed to `hard-` or something.
+        let mut class_scope = Scope::new_fn_scope(id);
+        class_scope.parent = Some(self.current_scope().clone());
+
+        self.current_scope()
             .borrow_mut()
             .classes
             .insert(class_def.name.clone(), class_def.clone());
 
-        self.last_scope().borrow_mut().vars.insert(
+        self.current_scope().borrow_mut().vars.insert(
             class_def.name.clone(),
             VarData {
                 value: AstValue::ClassRef {
                     class: class_def.clone(),
                     is_return: false,
+                    scope: Rc::new(RefCell::new(class_scope)),
                 },
                 id,
             },

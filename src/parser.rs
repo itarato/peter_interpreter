@@ -128,7 +128,7 @@ impl<'a> Parser<'a> {
                             token: Some(token),
                         })?;
 
-                    Ok(AstStatement::VarAssignment(name, expr))
+                    Ok(AstStatement::VarDeclaration(name, expr))
                 }
 
                 TokenKind::LeftBrace => {
@@ -357,7 +357,39 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /**
+     * Unit
+     * \ Nesting (rebalanced [right heavy tree])
+     *  \ Nesting (un-balanced [left heavy tree])
+     *   \ Method invocation
+     */
     fn parse_single_expression_unit(&mut self) -> Result<AstExpression, ParsingError<'a>> {
+        self.parse_single_expression_unit_without_rebalanced_nesting()
+            .map(|expr| expr.rebalance_nesting())
+    }
+
+    fn parse_single_expression_unit_without_rebalanced_nesting(
+        &mut self,
+    ) -> Result<AstExpression, ParsingError<'a>> {
+        let expr = self.parse_single_expression_unit_without_nesting()?;
+
+        if !self.is_next_token_kind(TokenKind::Dot) {
+            return Ok(expr);
+        }
+
+        self.reader.pop(); // dot
+
+        let suffix = self.parse_single_expression_unit_without_rebalanced_nesting()?;
+
+        Ok(AstExpression::Nesting {
+            context: Box::new(expr),
+            suffix: Box::new(suffix),
+        })
+    }
+
+    fn parse_single_expression_unit_without_nesting(
+        &mut self,
+    ) -> Result<AstExpression, ParsingError<'a>> {
         let mut expr = self.parse_single_expression_unit_without_method_invocation()?;
 
         // Wrap the expression in FnCalls sequencially.

@@ -130,10 +130,12 @@ pub(crate) enum AstValue {
     ClassRef {
         class: Rc<AstClass>,
         is_return: bool,
+        scope: Rc<RefCell<Scope>>,
     },
     ClassInstance {
         class: Rc<AstClass>,
         is_return: bool,
+        scope: Rc<RefCell<Scope>>,
     },
 }
 
@@ -265,6 +267,10 @@ pub(crate) enum AstExpression {
         caller: Box<AstExpression>,
         args: Vec<AstExpression>,
     },
+    Nesting {
+        context: Box<AstExpression>,
+        suffix: Box<AstExpression>,
+    },
 }
 
 impl AstExpression {
@@ -287,6 +293,10 @@ impl AstExpression {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            Self::Nesting {
+                context: base,
+                suffix,
+            } => format!("{}.{}", base.dump(), suffix.dump()),
         }
     }
 
@@ -357,6 +367,26 @@ impl AstExpression {
                             vm.update_variable(name.clone(), rhs_v.clone())?;
                             return Ok(rhs_v);
                         }
+                        AstExpression::Nesting { context, suffix } => match context.eval(vm)? {
+                            AstValue::ClassInstance { scope, .. } => {
+                                match &**suffix {
+                                    AstExpression::Identifier { name } => {
+                                        let value= rhs_expr.eval(vm)?;
+                                        vm.declare_instance_variable(&scope, name.clone(), value.clone());
+                                        return Ok(value);
+                                    }
+                                    other => return Err(
+                                        format!("Error: Invalid nesting suffix for instance variable declaration: {:?}", other).into()
+                                    ),
+                                }
+
+                            }
+                            other => {
+                                return Err(
+                                    format!("Error: Invalid nesting context: {:?}", other).into()
+                                );
+                            }
+                        },
                         _ => {
                             return Err(format!(
                                 "Error: expected identifier before assignment, got: {:?}",
@@ -682,13 +712,39 @@ impl AstExpression {
                         scope_barrier,
                         ..
                     } => function.eval(vm, args, scope, scope_barrier),
-                    AstValue::ClassRef { class, .. } => Ok(AstValue::ClassInstance {
-                        class: class.clone(),
-                        is_return: false,
-                    }),
+                    AstValue::ClassRef { class, scope, .. } => {
+                        let instance_id = vm.get_unique_id();
+                        Ok(AstValue::ClassInstance {
+                            class: class.clone(),
+                            is_return: false,
+                            scope: Rc::new(RefCell::new(Scope::new_fn_scope_with_parent(
+                                instance_id,
+                                scope.clone(),
+                            ))),
+                        })
+                    }
                     _ => Err(format!("Error: Invalid caller for a function: {:?}", caller).into()),
                 }
             }
+
+            Self::Nesting { context, suffix } => match context.eval(vm)? {
+                AstValue::ClassInstance { class, scope, .. } => match &**suffix {
+                    AstExpression::Identifier { name } => {
+                        match vm.load_variable_from_scope(name, &scope) {
+                            Some(value) => Ok(value),
+                            None => Err(format!(
+                                "Error: missing instance variable {} from class {}",
+                                name, class.name
+                            )
+                            .into()),
+                        }
+                    }
+                    other => {
+                        Err(format!("Error: Invalid suffix for nested call: {:?}", other).into())
+                    }
+                },
+                other => Err(format!("Error: Invalid prefix for nested call: {:?}", other).into()),
+            },
         }
     }
 
@@ -707,6 +763,42 @@ impl AstExpression {
             AstExpression::Identifier { name } => name == subject,
             AstExpression::Literal { .. } => false,
             AstExpression::Unary { expr, .. } => expr.includes_identifier_in_scope(subject),
+            AstExpression::Nesting { context: base, .. } => {
+                base.includes_identifier_in_scope(subject)
+            }
+        }
+    }
+
+    pub(crate) fn rebalance_nesting(self) -> Self {
+        match self {
+            Self::Nesting { context, suffix } => {
+                let context = *context;
+                let suffix = *suffix;
+
+                match suffix {
+                    Self::Nesting {
+                        context: rhs_context,
+                        suffix: rhs_suffix,
+                    } => {
+                        let rhs_context = *rhs_context;
+                        let rhs_suffix = *rhs_suffix;
+
+                        Self::Nesting {
+                            context: Box::new(AstExpression::Nesting {
+                                context: Box::new(context),
+                                suffix: Box::new(rhs_context),
+                            }),
+                            suffix: Box::new(rhs_suffix),
+                        }
+                        .rebalance_nesting()
+                    }
+                    _ => Self::Nesting {
+                        context: Box::new(context),
+                        suffix: Box::new(suffix),
+                    },
+                }
+            }
+            other => other,
         }
     }
 }
@@ -769,7 +861,7 @@ pub(crate) struct AstClass {
 pub(crate) enum AstStatement {
     Expr(AstExpression),
     Print(AstExpression),
-    VarAssignment(String, AstExpression),
+    VarDeclaration(String, AstExpression),
     Block(AstStatementList),
     If {
         cond: AstExpression,
@@ -803,7 +895,7 @@ impl AstStatement {
         match self {
             Self::Expr(expr) => expr.dump(),
             Self::Print(expr) => format!("print {}", expr.dump()),
-            Self::VarAssignment(name, expr) => format!("var {} = {}", name, expr.dump()),
+            Self::VarDeclaration(name, expr) => format!("var {} = {}", name, expr.dump()),
             Self::Block(stmt) => format!("{{\n{}\n}}", stmt.dump()),
             Self::For {
                 init,
@@ -857,7 +949,7 @@ impl AstStatement {
                 println!("{}", value.dump_short());
                 Ok(None)
             }
-            Self::VarAssignment(name, expr) => {
+            Self::VarDeclaration(name, expr) => {
                 let value = expr.eval(vm)?;
                 vm.declare_variable(name.clone(), value);
                 Ok(None)
@@ -957,7 +1049,7 @@ impl AstStatement {
 
     pub(crate) fn is_var_assignment(&self) -> bool {
         match self {
-            AstStatement::VarAssignment(_, _) => true,
+            AstStatement::VarDeclaration(_, _) => true,
             _ => false,
         }
     }

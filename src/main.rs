@@ -92,7 +92,10 @@ fn main() {
             }
 
             match parser::Parser::new(&tokens[..]).parse_program() {
-                Ok(expr) => println!("{}", expr.dump()),
+                Ok(stmts) => {
+                    dbg!(&stmts);
+                    println!("{}", stmts.dump())
+                }
                 Err(err) => {
                     error!("Error while parsing: {:?}", err);
 
