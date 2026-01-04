@@ -855,6 +855,7 @@ impl AstFn {
 #[derive(Debug)]
 pub(crate) struct AstClass {
     pub(crate) name: String,
+    pub(crate) functions: Vec<Rc<AstFn>>,
 }
 
 #[derive(Debug)]

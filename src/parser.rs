@@ -231,54 +231,8 @@ impl<'a> Parser<'a> {
 
                 TokenKind::Fun => {
                     self.reader.pop(); // fun
-
-                    let name_token = self.pop_and_assert(&TokenKind::Identifier)?;
-
-                    self.reader.pop(); // left paren
-
-                    let mut args = vec![];
-                    if !self.is_next_token_kind(TokenKind::RightParen) {
-                        loop {
-                            let arg_token = self.pop_and_assert(&TokenKind::Identifier)?;
-                            args.push(arg_token.lexeme.to_string());
-
-                            if self.is_next_token_kind(TokenKind::RightParen) {
-                                break;
-                            }
-
-                            self.pop_and_assert(&TokenKind::Comma)?;
-                        }
-                    }
-
-                    self.pop_and_assert(&TokenKind::RightParen)?;
-
-                    self.pop_and_assert(&TokenKind::LeftBrace)?;
-
-                    self.inspector.enter_scope();
-
-                    for arg in &args {
-                        self.inspector
-                            .declare_variable(arg.clone())
-                            .map_err(|err| ParsingError {
-                                msg: err.to_string(),
-                                token: Some(token),
-                            })?;
-                    }
-
-                    self.inspector.enter_fn_scope();
-
-                    let body = self.parse_statement_list()?;
-
-                    self.inspector.leave_fn_scope();
-                    self.inspector.leave_scope();
-
-                    self.pop_and_assert(&TokenKind::RightBrace)?;
-
-                    Ok(AstStatement::FnDef(Rc::new(AstFn {
-                        name: name_token.lexeme.to_string(),
-                        args,
-                        body: Box::new(body),
-                    })))
+                    self.parse_function()
+                        .map(|function| AstStatement::FnDef(Rc::new(function)))
                 }
 
                 TokenKind::Return => {
@@ -313,10 +267,16 @@ impl<'a> Parser<'a> {
                     let name = self.pop_and_assert(&TokenKind::Identifier)?;
 
                     self.pop_and_assert(&TokenKind::LeftBrace)?;
+                    self.inspector.enter_class_scope();
+
+                    let functions = self.parse_class_method_list()?;
+
+                    self.inspector.leave_class_scope();
                     self.pop_and_assert(&TokenKind::RightBrace)?;
 
                     Ok(AstStatement::ClassDef(Rc::new(AstClass {
                         name: name.lexeme.to_string(),
+                        functions,
                     })))
                 }
 
@@ -332,6 +292,24 @@ impl<'a> Parser<'a> {
                 msg: "No more token for statement.".into(),
             }),
         }
+    }
+
+    pub(crate) fn parse_class_method_list(&mut self) -> Result<Vec<Rc<AstFn>>, ParsingError<'a>> {
+        let mut functions = vec![];
+
+        loop {
+            if self.is_next_token_kind(TokenKind::RightBrace) {
+                break;
+            }
+
+            functions.push(Rc::new(self.parse_class_method()?));
+        }
+
+        Ok(functions)
+    }
+
+    pub(crate) fn parse_class_method(&mut self) -> Result<AstFn, ParsingError<'a>> {
+        self.parse_function()
     }
 
     pub(crate) fn parse_expression(&mut self) -> Result<AstExpression, ParsingError<'a>> {
@@ -493,6 +471,56 @@ impl<'a> Parser<'a> {
                 msg: "Expect expression.".into(),
             }),
         }
+    }
+
+    fn parse_function(&mut self) -> Result<AstFn, ParsingError<'a>> {
+        let name_token = self.pop_and_assert(&TokenKind::Identifier)?;
+
+        self.reader.pop(); // left paren
+
+        let mut args = vec![];
+        if !self.is_next_token_kind(TokenKind::RightParen) {
+            loop {
+                let arg_token = self.pop_and_assert(&TokenKind::Identifier)?;
+                args.push(arg_token.lexeme.to_string());
+
+                if self.is_next_token_kind(TokenKind::RightParen) {
+                    break;
+                }
+
+                self.pop_and_assert(&TokenKind::Comma)?;
+            }
+        }
+
+        self.pop_and_assert(&TokenKind::RightParen)?;
+
+        self.pop_and_assert(&TokenKind::LeftBrace)?;
+
+        self.inspector.enter_scope();
+
+        for arg in &args {
+            self.inspector
+                .declare_variable(arg.clone())
+                .map_err(|err| ParsingError {
+                    msg: err.to_string(),
+                    token: Some(name_token),
+                })?;
+        }
+
+        self.inspector.enter_fn_scope();
+
+        let body = self.parse_statement_list()?;
+
+        self.inspector.leave_fn_scope();
+        self.inspector.leave_scope();
+
+        self.pop_and_assert(&TokenKind::RightBrace)?;
+
+        Ok(AstFn {
+            name: name_token.lexeme.to_string(),
+            args,
+            body: Box::new(body),
+        })
     }
 
     fn pop_and_assert(
