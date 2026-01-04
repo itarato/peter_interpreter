@@ -1,7 +1,5 @@
 use std::{cell::RefCell, rc::Rc, usize};
 
-use log::debug;
-
 use crate::{
     common::Error,
     token::TokenKind,
@@ -712,33 +710,28 @@ impl AstExpression {
             }
 
             Self::Nesting { context, suffix } => match context.eval(vm)? {
-                AstValue::ClassInstance { class, scope, .. } => {
-                    debug!("Got class instance: {}", class.name);
-                    let result = match &**suffix {
-                        AstExpression::Identifier { name } => {
-                            match vm.load_variable_from_scope(name, &scope) {
-                                Some(value) => Ok(value),
-                                None => Err(format!(
-                                    "Error: missing instance variable {} from class {}",
-                                    name, class.name
-                                )
-                                .into()),
-                            }
+                AstValue::ClassInstance { class, scope, .. } => match &**suffix {
+                    AstExpression::Identifier { name } => {
+                        match vm.load_variable_from_scope(name, &scope) {
+                            Some(value) => Ok(value),
+                            None => Err(format!(
+                                "Error: missing instance variable {} from class {}",
+                                name, class.name
+                            )
+                            .into()),
                         }
-                        AstExpression::ExprCall { caller, args } => {
-                            vm.push_scope(scope);
-                            let caller_value = caller.eval(vm)?;
-                            vm.pop_scope();
+                    }
+                    AstExpression::ExprCall { caller, args } => {
+                        vm.push_scope(scope);
+                        let caller_value = caller.eval(vm)?;
+                        vm.pop_scope();
 
-                            evaluate_expr_call(vm, caller_value, args)
-                        }
-                        other => Err(
-                            format!("Error: Invalid suffix for nested call: {:?}", other).into(),
-                        ),
-                    };
-
-                    result
-                }
+                        evaluate_expr_call(vm, caller_value, args)
+                    }
+                    other => {
+                        Err(format!("Error: Invalid suffix for nested call: {:?}", other).into())
+                    }
+                },
                 other => Err(format!("Error: Invalid prefix for nested call: {:?}", other).into()),
             },
         }
