@@ -1,0 +1,20 @@
+class Foo {
+    bar() {
+        print this.x;
+    }
+}
+
+var a = Foo();
+var b = Foo();
+
+a.x = 123;
+b.x = 456;
+
+// a.bar();
+// b.bar();
+
+var abar = a.bar;
+var bbar = b.bar;
+
+abar();
+bbar();
