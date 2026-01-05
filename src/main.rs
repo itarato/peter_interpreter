@@ -154,7 +154,10 @@ fn main() {
 
             match Interpreter::new(program).evaluate() {
                 Ok(maybe_value) => {
-                    info!("Successful evaluation  Result: {:?}", maybe_value);
+                    info!(
+                        "Successful evaluation  Result: {:?}",
+                        maybe_value.as_ref().map(|v| v.dump_short())
+                    );
                 }
                 Err(err) => {
                     error!("Error while evaluating: {:?}", err);

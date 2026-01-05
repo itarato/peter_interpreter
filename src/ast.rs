@@ -127,6 +127,7 @@ pub(crate) enum AstValue {
         function: Rc<AstFn>,
         is_return: bool,
         scope: Rc<RefCell<Scope>>,
+        instance_scope: Option<Rc<RefCell<Scope>>>,
         scope_barrier: u64,
     },
     ClassRef {
@@ -226,6 +227,37 @@ impl AstValue {
             Self::FnRef { is_return, .. } => *is_return,
             Self::ClassRef { is_return, .. } => *is_return,
             Self::ClassInstance { is_return, .. } => *is_return,
+        }
+    }
+
+    fn with_scope(mut self, new_scope: Rc<RefCell<Scope>>) -> Self {
+        match self {
+            Self::FnRef {
+                function,
+                is_return,
+                scope,
+                scope_barrier,
+                instance_scope,
+            } => {
+                if instance_scope.is_none() {
+                    Self::FnRef {
+                        function,
+                        is_return,
+                        scope,
+                        scope_barrier,
+                        instance_scope: Some(new_scope),
+                    }
+                } else {
+                    Self::FnRef {
+                        function,
+                        is_return,
+                        scope: new_scope,
+                        scope_barrier,
+                        instance_scope,
+                    }
+                }
+            }
+            _ => self,
         }
     }
 }
@@ -721,7 +753,7 @@ impl AstExpression {
                 } => match &**suffix {
                     AstExpression::Identifier { name } => {
                         match vm.load_variable_from_scope(name, &instance_scope) {
-                            Some(value) => Ok(value),
+                            Some(value) => Ok(value.with_scope(instance_scope)),
                             None => Err(format!(
                                 "Error: missing instance variable {} from class {}",
                                 name, class.name
@@ -732,7 +764,7 @@ impl AstExpression {
                     AstExpression::ExprCall { caller, args } => {
                         vm.use_scope(instance_scope.clone());
 
-                        debug!("Calling FN: {:?}", &caller);
+                        // debug!("Calling FN: {:?}", &caller.dump());
                         vm.current_scope().borrow().dump_scope_content();
                         let caller_value = caller.eval(vm)?;
                         vm.remove_scope();
@@ -816,18 +848,20 @@ fn evaluate_expr_call(
     vm: &mut VM,
     caller_value: AstValue,
     args: &Vec<AstExpression>,
-    instance_scope: Option<Rc<RefCell<Scope>>>,
+    new_instance_scope: Option<Rc<RefCell<Scope>>>,
 ) -> Result<AstValue, Error> {
     match caller_value {
         AstValue::FnRef {
             function,
             scope,
             scope_barrier,
+            instance_scope: existing_instance_scope,
             ..
         } => {
-            let final_scope = if let Some(instance_scope) = instance_scope.clone() {
-                // instance_scope.borrow_mut().parent = Some(scope);
-                instance_scope
+            let final_scope = if let Some(scope) = existing_instance_scope {
+                scope
+            } else if let Some(scope) = new_instance_scope {
+                scope
             } else {
                 scope
             };

@@ -291,6 +291,7 @@ impl VM {
                     is_return: false,
                     scope: scope.clone(),
                     scope_barrier: id,
+                    instance_scope: None,
                 },
                 id,
             },
