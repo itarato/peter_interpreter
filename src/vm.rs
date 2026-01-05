@@ -16,6 +16,30 @@ fn get_new_scope_id() -> u64 {
 }
 
 #[derive(Debug)]
+pub(crate) enum ScopeKind {
+    Local,
+    Function(u64),
+    Class(u64),
+    Instance,
+}
+
+impl ScopeKind {
+    fn child_scope_max_allowed_var_id(&self) -> u64 {
+        match self {
+            Self::Class(v) | ScopeKind::Function(v) => *v,
+            _ => u64::MAX,
+        }
+    }
+
+    fn is_local(&self) -> bool {
+        match self {
+            Self::Local => true,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug)]
 struct VarData {
     value: AstValue,
     // Auto increment id. Marking creation order.
@@ -34,45 +58,19 @@ pub(crate) struct Scope {
             u64, /* Declaration ID. */
         ),
     >,
-    is_local_scope: bool,
+    kind: ScopeKind,
     pub(crate) parent: Option<Rc<RefCell<Scope>>>,
-    child_scope_max_allowed_var_id: u64,
     classes: HashMap<String, Rc<AstClass>>,
 }
 
 impl Scope {
-    fn new() -> Self {
+    pub(crate) fn new(kind: ScopeKind) -> Self {
         Self {
             id: get_new_scope_id(),
             vars: HashMap::new(),
             functions: HashMap::new(),
-            is_local_scope: true,
+            kind,
             parent: None,
-            child_scope_max_allowed_var_id: u64::MAX,
-            classes: HashMap::new(),
-        }
-    }
-
-    fn new_fn_scope(scope_barrier: u64) -> Self {
-        Self {
-            id: get_new_scope_id(),
-            vars: HashMap::new(),
-            functions: HashMap::new(),
-            is_local_scope: false,
-            parent: None,
-            child_scope_max_allowed_var_id: scope_barrier,
-            classes: HashMap::new(),
-        }
-    }
-
-    pub(crate) fn new_instance_scope(scope_barrier: u64, class_scope: Rc<RefCell<Scope>>) -> Self {
-        Self {
-            id: get_new_scope_id(),
-            vars: HashMap::new(),
-            functions: HashMap::new(),
-            is_local_scope: false,
-            parent: Some(class_scope),
-            child_scope_max_allowed_var_id: scope_barrier,
             classes: HashMap::new(),
         }
     }
@@ -83,20 +81,20 @@ impl Scope {
 
     fn dump_scope_content_on_level(&self, level: usize) {
         debug!(
-            "[Scope #{} (id={}) (barrier={})]{}[Vars: {:?}]",
+            "[Scope #{} (id={}) (kind={:?})][Vars: {:?}]",
             level,
             self.id,
-            self.child_scope_max_allowed_var_id,
-            if self.is_local_scope {
-                "[local]"
-            } else {
-                "[fn]"
-            },
+            self.kind,
             self.vars.keys(),
         );
         if let Some(parent) = &self.parent {
             parent.borrow().dump_scope_content_on_level(level + 1);
         }
+    }
+
+    pub(crate) fn with_parent(mut self, parent_scope: Rc<RefCell<Self>>) -> Self {
+        self.parent = Some(parent_scope);
+        self
     }
 }
 
@@ -131,7 +129,7 @@ pub(crate) struct VM {
 impl VM {
     pub(crate) fn new() -> Self {
         Self {
-            scopes: vec![Rc::new(RefCell::new(Scope::new()))],
+            scopes: vec![Rc::new(RefCell::new(Scope::new(ScopeKind::Local)))],
             id_provider: 0,
         }
     }
@@ -183,7 +181,8 @@ impl VM {
                 return Some(var_data.value.clone());
             }
 
-            max_allowed_var_id = max_allowed_var_id.min(scope_ref.child_scope_max_allowed_var_id);
+            max_allowed_var_id =
+                max_allowed_var_id.min(scope_ref.kind.child_scope_max_allowed_var_id());
         }
 
         None
@@ -224,14 +223,14 @@ impl VM {
             }
 
             max_allowed_var_id =
-                max_allowed_var_id.min(scope_ref_mut.child_scope_max_allowed_var_id);
+                max_allowed_var_id.min(scope_ref_mut.kind.child_scope_max_allowed_var_id());
         }
 
         Err(format!("Error: variable not found in any scope: {}", name).into())
     }
 
     pub(crate) fn push_local_scope(&mut self) {
-        let mut new_scope = Scope::new();
+        let mut new_scope = Scope::new(ScopeKind::Local);
         new_scope.parent = Some(self.current_scope().clone());
 
         self.scopes.pop();
@@ -239,7 +238,7 @@ impl VM {
     }
 
     pub(crate) fn push_function_scope(&mut self, scope: Rc<RefCell<Scope>>, scope_barrier: u64) {
-        let mut new_scope = Scope::new_fn_scope(scope_barrier);
+        let mut new_scope = Scope::new(ScopeKind::Function(scope_barrier));
         new_scope.parent = Some(scope);
 
         self.scopes.push(Rc::new(RefCell::new(new_scope)));
@@ -302,7 +301,7 @@ impl VM {
         let id = self.get_unique_id();
 
         // TODO: Review is fn-scope is appropriate. Likely it is - and `fn-` should be renamed to `hard-` or something.
-        let mut class_scope = Scope::new_fn_scope(id);
+        let mut class_scope = Scope::new(ScopeKind::Class(id));
         class_scope.parent = Some(self.current_scope().clone());
 
         self.current_scope()
@@ -359,6 +358,6 @@ impl VM {
 
     pub(crate) fn is_in_function_scope(&self) -> bool {
         self.scope_iter()
-            .any(|scope| !scope.borrow().is_local_scope)
+            .any(|scope| !scope.borrow().kind.is_local())
     }
 }

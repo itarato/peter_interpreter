@@ -230,7 +230,7 @@ impl AstValue {
         }
     }
 
-    fn with_scope(mut self, new_scope: Rc<RefCell<Scope>>) -> Self {
+    fn with_scope(self, new_scope: Rc<RefCell<Scope>>) -> Self {
         match self {
             Self::FnRef {
                 function,
@@ -875,11 +875,9 @@ fn evaluate_expr_call(
             scope: class_scope,
             ..
         } => {
-            let instance_id = vm.get_unique_id();
-            let new_instance_scope = Rc::new(RefCell::new(Scope::new_instance_scope(
-                u64::MAX,
-                class_scope,
-            )));
+            let new_instance_scope = Rc::new(RefCell::new(
+                Scope::new(crate::vm::ScopeKind::Instance).with_parent(class_scope),
+            ));
 
             let class_instance = AstValue::ClassInstance {
                 class: class.clone(),
