@@ -1,4 +1,6 @@
-use std::{cell::RefCell, rc::Rc, usize};
+use std::{cell::RefCell, rc::Rc, u64, usize};
+
+use log::debug;
 
 use crate::{
     common::Error,
@@ -271,6 +273,7 @@ pub(crate) enum AstExpression {
         context: Box<AstExpression>,
         suffix: Box<AstExpression>,
     },
+    This,
 }
 
 impl AstExpression {
@@ -297,6 +300,7 @@ impl AstExpression {
                 context: base,
                 suffix,
             } => format!("{}.{}", base.dump(), suffix.dump()),
+            Self::This => "this".to_string(),
         }
     }
 
@@ -706,13 +710,17 @@ impl AstExpression {
                 }
 
                 let caller_value = caller.eval(vm)?;
-                evaluate_expr_call(vm, caller_value, args)
+                evaluate_expr_call(vm, caller_value, args, None)
             }
 
             Self::Nesting { context, suffix } => match context.eval(vm)? {
-                AstValue::ClassInstance { class, scope, .. } => match &**suffix {
+                AstValue::ClassInstance {
+                    class,
+                    scope: instance_scope,
+                    ..
+                } => match &**suffix {
                     AstExpression::Identifier { name } => {
-                        match vm.load_variable_from_scope(name, &scope) {
+                        match vm.load_variable_from_scope(name, &instance_scope) {
                             Some(value) => Ok(value),
                             None => Err(format!(
                                 "Error: missing instance variable {} from class {}",
@@ -722,11 +730,14 @@ impl AstExpression {
                         }
                     }
                     AstExpression::ExprCall { caller, args } => {
-                        vm.push_scope(scope);
-                        let caller_value = caller.eval(vm)?;
-                        vm.pop_scope();
+                        vm.use_scope(instance_scope.clone());
 
-                        evaluate_expr_call(vm, caller_value, args)
+                        debug!("Calling FN: {:?}", &caller);
+                        vm.current_scope().borrow().dump_scope_content();
+                        let caller_value = caller.eval(vm)?;
+                        vm.remove_scope();
+
+                        evaluate_expr_call(vm, caller_value, args, Some(instance_scope))
                     }
                     other => {
                         Err(format!("Error: Invalid suffix for nested call: {:?}", other).into())
@@ -734,6 +745,14 @@ impl AstExpression {
                 },
                 other => Err(format!("Error: Invalid prefix for nested call: {:?}", other).into()),
             },
+
+            Self::This => {
+                debug!("Load this.");
+                vm.current_scope().borrow().dump_scope_content();
+
+                vm.load_variable("this")
+                    .ok_or("<this> is not found in scope".into())
+            }
         }
     }
 
@@ -755,6 +774,7 @@ impl AstExpression {
             AstExpression::Nesting { context: base, .. } => {
                 base.includes_identifier_in_scope(subject)
             }
+            AstExpression::This => false,
         }
     }
 
@@ -796,6 +816,7 @@ fn evaluate_expr_call(
     vm: &mut VM,
     caller_value: AstValue,
     args: &Vec<AstExpression>,
+    instance_scope: Option<Rc<RefCell<Scope>>>,
 ) -> Result<AstValue, Error> {
     match caller_value {
         AstValue::FnRef {
@@ -803,17 +824,44 @@ fn evaluate_expr_call(
             scope,
             scope_barrier,
             ..
-        } => function.eval(vm, args, scope, scope_barrier),
-        AstValue::ClassRef { class, scope, .. } => {
+        } => {
+            let final_scope = if let Some(instance_scope) = instance_scope.clone() {
+                // instance_scope.borrow_mut().parent = Some(scope);
+                instance_scope
+            } else {
+                scope
+            };
+
+            let result = function.eval(vm, args, final_scope, scope_barrier);
+
+            result
+        }
+        AstValue::ClassRef {
+            class,
+            scope: class_scope,
+            ..
+        } => {
             let instance_id = vm.get_unique_id();
-            Ok(AstValue::ClassInstance {
+            let new_instance_scope = Rc::new(RefCell::new(Scope::new_instance_scope(
+                u64::MAX,
+                class_scope,
+            )));
+
+            let class_instance = AstValue::ClassInstance {
                 class: class.clone(),
                 is_return: false,
-                scope: Rc::new(RefCell::new(Scope::new_fn_scope_with_parent(
-                    instance_id,
-                    scope.clone(),
-                ))),
-            })
+                scope: new_instance_scope.clone(),
+            };
+
+            vm.declare_instance_variable(
+                &new_instance_scope,
+                "this".to_string(),
+                class_instance.clone(),
+            );
+            debug!("This is declared.");
+            new_instance_scope.borrow().dump_scope_content();
+
+            Ok(class_instance)
         }
         _ => Err(format!("Error: Invalid caller for a function: {:?}", caller_value).into()),
     }

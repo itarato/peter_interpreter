@@ -6,6 +6,15 @@ use crate::{
 };
 use std::{cell::RefCell, collections::HashMap, rc::Rc, u64, usize};
 
+static mut SCOPE_COUNTER: u64 = 0;
+fn get_new_scope_id() -> u64 {
+    unsafe {
+        let id = SCOPE_COUNTER;
+        SCOPE_COUNTER += 1;
+        id
+    }
+}
+
 #[derive(Debug)]
 struct VarData {
     value: AstValue,
@@ -15,6 +24,7 @@ struct VarData {
 
 #[derive(Debug)]
 pub(crate) struct Scope {
+    id: u64,
     vars: HashMap<String, VarData>,
     functions: HashMap<
         String,
@@ -25,7 +35,7 @@ pub(crate) struct Scope {
         ),
     >,
     is_local_scope: bool,
-    parent: Option<Rc<RefCell<Scope>>>,
+    pub(crate) parent: Option<Rc<RefCell<Scope>>>,
     child_scope_max_allowed_var_id: u64,
     classes: HashMap<String, Rc<AstClass>>,
 }
@@ -33,6 +43,7 @@ pub(crate) struct Scope {
 impl Scope {
     fn new() -> Self {
         Self {
+            id: get_new_scope_id(),
             vars: HashMap::new(),
             functions: HashMap::new(),
             is_local_scope: true,
@@ -44,6 +55,7 @@ impl Scope {
 
     fn new_fn_scope(scope_barrier: u64) -> Self {
         Self {
+            id: get_new_scope_id(),
             vars: HashMap::new(),
             functions: HashMap::new(),
             is_local_scope: false,
@@ -53,22 +65,37 @@ impl Scope {
         }
     }
 
-    pub(crate) fn new_fn_scope_with_parent(scope_barrier: u64, parent: Rc<RefCell<Scope>>) -> Self {
+    pub(crate) fn new_instance_scope(scope_barrier: u64, class_scope: Rc<RefCell<Scope>>) -> Self {
         Self {
+            id: get_new_scope_id(),
             vars: HashMap::new(),
             functions: HashMap::new(),
             is_local_scope: false,
-            parent: Some(parent),
+            parent: Some(class_scope),
             child_scope_max_allowed_var_id: scope_barrier,
             classes: HashMap::new(),
         }
     }
 
-    fn depth(&self) -> usize {
-        if self.parent.is_none() {
-            1
-        } else {
-            1 + self.parent.as_ref().unwrap().borrow().depth()
+    pub(crate) fn dump_scope_content(&self) {
+        self.dump_scope_content_on_level(0);
+    }
+
+    fn dump_scope_content_on_level(&self, level: usize) {
+        debug!(
+            "[Scope #{} (id={}) (barrier={})]{}[Vars: {:?}]",
+            level,
+            self.id,
+            self.child_scope_max_allowed_var_id,
+            if self.is_local_scope {
+                "[local]"
+            } else {
+                "[fn]"
+            },
+            self.vars.keys(),
+        );
+        if let Some(parent) = &self.parent {
+            parent.borrow().dump_scope_content_on_level(level + 1);
         }
     }
 }
@@ -147,7 +174,9 @@ impl VM {
 
             if scope_ref.vars.contains_key(name) {
                 let var_data = scope_ref.vars.get(name).unwrap();
-                if var_data.id > max_allowed_var_id {
+                // TODO: Fix the hack for `this`.
+                // The problem is the registration is after the class-fn registration.
+                if var_data.id > max_allowed_var_id && name != "this" {
                     continue;
                 }
 
@@ -216,7 +245,9 @@ impl VM {
         self.scopes.push(Rc::new(RefCell::new(new_scope)));
     }
 
-    pub(crate) fn pop_local_scope(&mut self) {
+    pub(crate) fn pop_local_scope(&mut self) -> Rc<RefCell<Scope>> {
+        let removed_scope = self.current_scope().clone();
+
         let new_scope = {
             let inner = self.current_scope().borrow();
             inner.parent.clone().unwrap()
@@ -224,17 +255,19 @@ impl VM {
 
         self.scopes.pop();
         self.scopes.push(new_scope);
+
+        removed_scope
     }
 
     pub(crate) fn pop_function_scope(&mut self) {
         self.scopes.pop();
     }
 
-    pub(crate) fn push_scope(&mut self, scope: Rc<RefCell<Scope>>) {
+    pub(crate) fn use_scope(&mut self, scope: Rc<RefCell<Scope>>) {
         self.scopes.push(scope);
     }
 
-    pub(crate) fn pop_scope(&mut self) {
+    pub(crate) fn remove_scope(&mut self) {
         self.scopes.pop();
     }
 
@@ -243,11 +276,6 @@ impl VM {
     }
 
     pub(crate) fn establish_fn_in_scope(&mut self, fn_def: Rc<AstFn>, scope: &Rc<RefCell<Scope>>) {
-        debug!(
-            "Register fn: {} Scope size: {}",
-            fn_def.name,
-            scope.borrow().depth()
-        );
         let id = self.get_unique_id();
 
         scope

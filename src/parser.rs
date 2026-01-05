@@ -67,7 +67,8 @@ impl<'a> Parser<'a> {
                 | TokenKind::Minus
                 | TokenKind::Bang
                 | TokenKind::LeftParen
-                | TokenKind::Identifier => {
+                | TokenKind::Identifier
+                | TokenKind::This => {
                     let expr = self.parse_expression()?;
 
                     if !skip_semicolon {
@@ -465,6 +466,7 @@ impl<'a> Parser<'a> {
             TokenKind::Identifier => Ok(AstExpression::Identifier {
                 name: token.lexeme.to_string(),
             }),
+            TokenKind::This => Ok(AstExpression::This),
 
             _ => Err(ParsingError {
                 token: Some(token),
