@@ -752,6 +752,7 @@ impl AstExpression {
                     ..
                 } => match &**suffix {
                     AstExpression::Identifier { name } => {
+                        // debug!("INSTANCE LOAD");
                         match vm.load_variable_from_scope(name, &instance_scope) {
                             Some(value) => Ok(value.with_scope(instance_scope)),
                             None => Err(format!(
@@ -765,7 +766,7 @@ impl AstExpression {
                         vm.use_scope(instance_scope.clone());
 
                         // debug!("Calling FN: {:?}", &caller.dump());
-                        vm.current_scope().borrow().dump_scope_content();
+                        // vm.current_scope().borrow().dump_scope_content();
                         let caller_value = caller.eval(vm)?;
                         vm.remove_scope();
 
@@ -779,8 +780,8 @@ impl AstExpression {
             },
 
             Self::This => {
-                debug!("Load this.");
-                vm.current_scope().borrow().dump_scope_content();
+                // debug!("Load this.");
+                // vm.current_scope().borrow().dump_scope_content();
 
                 vm.load_variable("this")
                     .ok_or("<this> is not found in scope".into())
@@ -890,8 +891,8 @@ fn evaluate_expr_call(
                 "this".to_string(),
                 class_instance.clone(),
             );
-            debug!("This is declared.");
-            new_instance_scope.borrow().dump_scope_content();
+            // debug!("This is declared.");
+            // new_instance_scope.borrow().dump_scope_content();
 
             Ok(class_instance)
         }

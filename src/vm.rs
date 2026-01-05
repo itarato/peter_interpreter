@@ -37,6 +37,13 @@ impl ScopeKind {
             _ => false,
         }
     }
+
+    fn is_instance(&self) -> bool {
+        match self {
+            ScopeKind::Instance => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -85,7 +92,10 @@ impl Scope {
             level,
             self.id,
             self.kind,
-            self.vars.keys(),
+            self.vars
+                .iter()
+                .map(|(k, v)| format!("{}({})", k, v.id))
+                .collect::<Vec<_>>(),
         );
         if let Some(parent) = &self.parent {
             parent.borrow().dump_scope_content_on_level(level + 1);
@@ -165,6 +175,9 @@ impl VM {
         name: &str,
         scope: &Rc<RefCell<Scope>>,
     ) -> Option<AstValue> {
+        debug!("LOAD VARIABLE: {}", name);
+        scope.borrow().dump_scope_content();
+
         let mut max_allowed_var_id = u64::MAX;
 
         for scope in Self::make_scope_iter(scope) {
@@ -174,7 +187,7 @@ impl VM {
                 let var_data = scope_ref.vars.get(name).unwrap();
                 // TODO: Fix the hack for `this`.
                 // The problem is the registration is after the class-fn registration.
-                if var_data.id > max_allowed_var_id && name != "this" {
+                if var_data.id > max_allowed_var_id && !scope_ref.kind.is_instance() {
                     continue;
                 }
 
