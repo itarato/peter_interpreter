@@ -1,0 +1,9 @@
+class Foo {
+    bar() {
+        print this;
+    }
+}
+
+var a = Foo();
+var abar = a.bar;
+abar();

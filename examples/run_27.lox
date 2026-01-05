@@ -1,0 +1,23 @@
+class Foo {
+    bar() {
+        print "this is bar";
+    }
+
+    baz() {
+        print "this is baz";
+        print this.x;
+    }
+}
+
+fun foo() {
+    print "this is foo";
+}
+
+var a = Foo();
+var b = Foo();
+
+a.x = "AAA";
+b.x = "BBB";
+
+a.bar = b.baz;
+a.bar();
