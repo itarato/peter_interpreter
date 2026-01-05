@@ -1,0 +1,13 @@
+var x = 123;
+
+class Foo {
+    bar() {
+        print x;
+        print this.x;
+        print this;
+    }
+}
+
+var a = Foo();
+a.x = 456;
+a.bar();
