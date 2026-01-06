@@ -1,0 +1,9 @@
+
+class Foo {
+    bar() {
+    }
+}
+
+var a = Foo();
+var x = a.bar;
+x();
