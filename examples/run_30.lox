@@ -3,6 +3,7 @@ class Foo {
         print "init";
         this.x = 123;
         this.v = v;
+        return 1;
     }
 }
 

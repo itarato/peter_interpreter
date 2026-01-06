@@ -103,7 +103,7 @@ impl UnaryOp {
 }
 
 #[derive(Debug, Clone)]
-struct AstValueClassInstance {
+pub(crate) struct AstValueClassInstance {
     class: Rc<AstClass>,
     is_return: bool,
     scope: Rc<RefCell<Scope>>,

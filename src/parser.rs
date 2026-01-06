@@ -254,6 +254,13 @@ impl<'a> Parser<'a> {
                             },
                         }
                     } else {
+                        if self.inspector.is_class_init_fn_scope() {
+                            return Err(ParsingError {
+                                token: self.reader.pop(),
+                                msg: "Error: init function cannot have return value".into(),
+                            });
+                        }
+
                         self.parse_expression()?
                     };
 
@@ -518,7 +525,11 @@ impl<'a> Parser<'a> {
                 })?;
         }
 
-        self.inspector.enter_fn_scope();
+        if name_token.lexeme == "init" {
+            self.inspector.enter_init_fn_scope();
+        } else {
+            self.inspector.enter_fn_scope();
+        }
 
         let body = self.parse_statement_list()?;
 
