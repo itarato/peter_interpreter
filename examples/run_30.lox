@@ -1,0 +1,12 @@
+class Foo {
+    init(v) {
+        print "init";
+        this.x = 123;
+        this.v = v;
+    }
+}
+
+var a = Foo(456);
+print a.x;
+print a.v;
+print a.init(12);
