@@ -738,6 +738,7 @@ impl AstExpression {
                             return vm.eval_internal_fn("clock", args);
                         }
                     }
+                    AstExpression::This => return Err("<this> is used as a function name.".into()),
                     _ => {}
                 }
 

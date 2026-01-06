@@ -54,6 +54,12 @@ impl Inspector {
             .any(|scope_flag| (scope_flag & SCOPE_FLAG_FN) > 0)
     }
 
+    pub(crate) fn is_class_scope(&self) -> bool {
+        self.static_scope_level
+            .iter()
+            .any(|scope_flag| (scope_flag & SCOPE_FLAG_CLASS) > 0)
+    }
+
     pub(crate) fn declare_variable(&mut self, name: String) -> Result<(), Error> {
         if !self.is_global_scope() && self.declared_scope_vars.last().unwrap().contains(&name) {
             return Err(format!("Error: Variable {} already declared.", &name).into());

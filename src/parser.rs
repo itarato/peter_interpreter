@@ -466,7 +466,16 @@ impl<'a> Parser<'a> {
             TokenKind::Identifier => Ok(AstExpression::Identifier {
                 name: token.lexeme.to_string(),
             }),
-            TokenKind::This => Ok(AstExpression::This),
+            TokenKind::This => {
+                if self.inspector.is_class_scope() {
+                    Ok(AstExpression::This)
+                } else {
+                    Err(ParsingError {
+                        token: Some(token),
+                        msg: "Error: this in a non class context.".into(),
+                    })
+                }
+            }
 
             _ => Err(ParsingError {
                 token: Some(token),
