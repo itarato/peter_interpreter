@@ -44,6 +44,13 @@ impl ScopeKind {
             _ => false,
         }
     }
+
+    fn is_class(&self) -> bool {
+        match self {
+            ScopeKind::Class(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -167,13 +174,14 @@ impl VM {
     }
 
     pub(crate) fn load_variable(&self, name: &str) -> Option<AstValue> {
-        self.load_variable_from_scope(name, &self.current_scope())
+        self.load_variable_from_scope(name, &self.current_scope(), false)
     }
 
     pub(crate) fn load_variable_from_scope(
         &self,
         name: &str,
         scope: &Rc<RefCell<Scope>>,
+        limit_to_class_scope: bool,
     ) -> Option<AstValue> {
         debug!("LOAD VARIABLE: {}", name);
         scope.borrow().dump_scope_content();
@@ -185,13 +193,18 @@ impl VM {
 
             if scope_ref.vars.contains_key(name) {
                 let var_data = scope_ref.vars.get(name).unwrap();
-                // TODO: Fix the hack for `this`.
-                // The problem is the registration is after the class-fn registration.
                 if var_data.id > max_allowed_var_id && !scope_ref.kind.is_instance() {
                     continue;
                 }
 
                 return Some(var_data.value.clone());
+            }
+
+            // Instance variables are only seeing down to class, and not lower.
+            // We cannot fully remove the below class scope since class functions do see
+            // that level too.
+            if limit_to_class_scope && scope_ref.kind.is_class() {
+                break;
             }
 
             max_allowed_var_id =

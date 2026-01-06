@@ -753,7 +753,7 @@ impl AstExpression {
                 } => match &**suffix {
                     AstExpression::Identifier { name } => {
                         // debug!("INSTANCE LOAD");
-                        match vm.load_variable_from_scope(name, &instance_scope) {
+                        match vm.load_variable_from_scope(name, &instance_scope, true) {
                             Some(value) => Ok(value.with_scope(instance_scope)),
                             None => Err(format!(
                                 "Error: missing instance variable {} from class {}",
