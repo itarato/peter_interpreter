@@ -1,0 +1,15 @@
+class Root {
+  getName() {
+    print "Root class";
+  }
+}
+
+class Parent < Root {
+}
+
+class Child < Parent {
+}
+
+var child = Child();
+
+child.getName();
