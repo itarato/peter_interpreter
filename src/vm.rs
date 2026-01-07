@@ -92,10 +92,10 @@ impl Scope {
     }
 
     pub(crate) fn dump_scope_content(&self) {
-        self.dump_scope_content_on_level(0);
+        self.dump_scopes(&mut 0);
     }
 
-    fn dump_scope_content_on_level(&self, level: usize) {
+    fn dump_content(&self, level: usize) {
         debug!(
             "[Scope #{} (id={}) (kind={:?})][Vars: {:?}]",
             level,
@@ -106,19 +106,27 @@ impl Scope {
                 .map(|(k, v)| format!("{}({})", k, v.id))
                 .collect::<Vec<_>>(),
         );
+    }
 
-        let mut level = level;
+    fn dump_scopes(&self, level: &mut usize) {
+        self.dump_content(*level);
 
         if let Some(super_class_scope) = &self.super_class_scope {
-            level += 1;
-            super_class_scope
-                .borrow()
-                .dump_scope_content_on_level(level);
+            super_class_scope.borrow().dump_super_class_scopes(level);
         }
 
         if let Some(parent) = &self.parent {
-            level += 1;
-            parent.borrow().dump_scope_content_on_level(level);
+            *level += 1;
+            parent.borrow().dump_scopes(level);
+        }
+    }
+
+    fn dump_super_class_scopes(&self, level: &mut usize) {
+        self.dump_content(*level);
+
+        if let Some(super_class_scope) = &self.super_class_scope {
+            *level += 1;
+            super_class_scope.borrow().dump_super_class_scopes(level);
         }
     }
 
@@ -189,7 +197,19 @@ impl VM {
             scopes.push(scope.clone());
 
             if let Some(super_class_scope) = &scope.borrow().super_class_scope {
-                scopes.push(super_class_scope.clone());
+                let mut super_class_scope = super_class_scope.clone();
+
+                loop {
+                    scopes.push(super_class_scope.clone());
+
+                    if let Some(next_super_class_scope) =
+                        &super_class_scope.clone().borrow().super_class_scope
+                    {
+                        super_class_scope = next_super_class_scope.clone();
+                    } else {
+                        break;
+                    }
+                }
             }
 
             if let Some(parent_scope) = &scope.clone().borrow().parent {

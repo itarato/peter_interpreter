@@ -22,3 +22,5 @@ class Cat < Animal {
 Cat().purr();
 //Cat().speak();
 //Cat().tag();
+
+Animal().tag();
