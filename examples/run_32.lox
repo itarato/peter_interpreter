@@ -2,6 +2,10 @@ class Animal {
   speak() {
     print "animal speak";
   }
+
+  tag() {
+    print "i'm an animal";
+  }
 }
 
 class Cat < Animal {
@@ -11,5 +15,10 @@ class Cat < Animal {
 
   purr() {
     print "purr";
+    this.tag();
   }
 }
+
+Cat().purr();
+//Cat().speak();
+//Cat().tag();

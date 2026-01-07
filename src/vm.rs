@@ -73,8 +73,9 @@ pub(crate) struct Scope {
         ),
     >,
     kind: ScopeKind,
-    pub(crate) parent: Option<Rc<RefCell<Scope>>>,
+    parent: Option<Rc<RefCell<Scope>>>,
     classes: HashMap<String, Rc<AstClass>>,
+    super_class_scope: Option<Rc<RefCell<Scope>>>,
 }
 
 impl Scope {
@@ -86,6 +87,7 @@ impl Scope {
             kind,
             parent: None,
             classes: HashMap::new(),
+            super_class_scope: None,
         }
     }
 
@@ -104,8 +106,19 @@ impl Scope {
                 .map(|(k, v)| format!("{}({})", k, v.id))
                 .collect::<Vec<_>>(),
         );
+
+        let mut level = level;
+
+        if let Some(super_class_scope) = &self.super_class_scope {
+            level += 1;
+            super_class_scope
+                .borrow()
+                .dump_scope_content_on_level(level);
+        }
+
         if let Some(parent) = &self.parent {
-            parent.borrow().dump_scope_content_on_level(level + 1);
+            level += 1;
+            parent.borrow().dump_scope_content_on_level(level);
         }
     }
 
@@ -113,27 +126,30 @@ impl Scope {
         self.parent = Some(parent_scope);
         self
     }
+
+    pub(crate) fn with_super_class_scope(
+        mut self,
+        super_class_scope: Option<Rc<RefCell<Self>>>,
+    ) -> Self {
+        self.super_class_scope = super_class_scope;
+        self
+    }
 }
 
 struct ScopeIter {
-    scope: Option<Rc<RefCell<Scope>>>,
+    scopes: Vec<Rc<RefCell<Scope>>>,
+    index: usize,
 }
 
 impl Iterator for ScopeIter {
     type Item = Rc<RefCell<Scope>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.scope.is_none() {
+        if self.index >= self.scopes.len() {
             None
         } else {
-            let current = self.scope.clone();
-
-            self.scope = {
-                let inner = self.scope.as_ref().unwrap().borrow();
-                inner.parent.clone()
-            };
-
-            current
+            self.index += 1;
+            Some(self.scopes[self.index - 1].clone())
         }
     }
 }
@@ -162,15 +178,28 @@ impl VM {
     }
 
     fn scope_iter(&self) -> ScopeIter {
-        ScopeIter {
-            scope: Some(self.current_scope().clone()),
-        }
+        Self::make_scope_iter(self.current_scope())
     }
 
     fn make_scope_iter(scope: &Rc<RefCell<Scope>>) -> ScopeIter {
-        ScopeIter {
-            scope: Some(scope.clone()),
+        let mut scopes = vec![];
+        let mut scope = scope.clone();
+
+        loop {
+            scopes.push(scope.clone());
+
+            if let Some(super_class_scope) = &scope.borrow().super_class_scope {
+                scopes.push(super_class_scope.clone());
+            }
+
+            if let Some(parent_scope) = &scope.clone().borrow().parent {
+                scope = parent_scope.clone();
+            } else {
+                break;
+            }
         }
+
+        ScopeIter { scopes, index: 0 }
     }
 
     pub(crate) fn load_variable(&self, name: &str) -> Option<AstValue> {
@@ -326,8 +355,20 @@ impl VM {
     pub(crate) fn establish_class(&mut self, class_def: Rc<AstClass>) {
         let id = self.get_unique_id();
 
-        // TODO: Review is fn-scope is appropriate. Likely it is - and `fn-` should be renamed to `hard-` or something.
-        let mut class_scope = Scope::new(ScopeKind::Class(id));
+        let super_class_scope = class_def
+            .super_class
+            .as_ref()
+            .and_then(|super_class_name| self.load_variable(&super_class_name))
+            .and_then(|super_class_value| match super_class_value {
+                AstValue::ClassRef {
+                    scope: super_class_scope,
+                    ..
+                } => Some(super_class_scope),
+                _ => None,
+            });
+
+        let mut class_scope =
+            Scope::new(ScopeKind::Class(id)).with_super_class_scope(super_class_scope);
         class_scope.parent = Some(self.current_scope().clone());
 
         self.current_scope()
@@ -352,16 +393,6 @@ impl VM {
         for function in &class_def.functions {
             self.establish_fn_in_scope(function.clone(), &scope);
         }
-    }
-
-    pub(crate) fn load_class(&self, name: &str) -> Option<Rc<AstClass>> {
-        for scope in self.scope_iter() {
-            if scope.borrow().classes.contains_key(name) {
-                return scope.borrow().classes.get(name).cloned();
-            }
-        }
-
-        None
     }
 
     pub(crate) fn eval_internal_fn(
