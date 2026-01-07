@@ -277,6 +277,14 @@ impl<'a> Parser<'a> {
                     let super_class = if self.is_next_token_kind(TokenKind::Less) {
                         self.reader.pop(); // less
                         let super_class_ident = self.pop_and_assert(&TokenKind::Identifier)?;
+
+                        if super_class_ident.lexeme == name.lexeme {
+                            return Err(ParsingError {
+                                token: Some(super_class_ident),
+                                msg: "Error: class inheriting itself".into(),
+                            });
+                        }
+
                         Some(super_class_ident.lexeme.to_string())
                     } else {
                         None

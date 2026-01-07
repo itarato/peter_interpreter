@@ -377,20 +377,22 @@ impl VM {
         );
     }
 
-    pub(crate) fn establish_class(&mut self, class_def: Rc<AstClass>) {
+    pub(crate) fn establish_class(&mut self, class_def: Rc<AstClass>) -> Result<(), Error> {
         let id = self.get_unique_id();
 
-        let super_class_scope = class_def
-            .super_class
-            .as_ref()
-            .and_then(|super_class_name| self.load_variable(&super_class_name))
-            .and_then(|super_class_value| match super_class_value {
-                AstValue::ClassRef {
-                    scope: super_class_scope,
-                    ..
-                } => Some(super_class_scope),
-                _ => None,
-            });
+        let super_class_scope = match class_def.super_class.as_ref() {
+            Some(super_class_name) => {
+                let super_class_value = self.load_variable(&super_class_name);
+                match super_class_value {
+                    Some(AstValue::ClassRef {
+                        scope: super_class_scope,
+                        ..
+                    }) => Some(super_class_scope),
+                    _ => return Err("Error: super class is not a class".into()),
+                }
+            }
+            None => None,
+        };
 
         let mut class_scope =
             Scope::new(ScopeKind::Class(id)).with_super_class_scope(super_class_scope);
@@ -418,6 +420,8 @@ impl VM {
         for function in &class_def.functions {
             self.establish_fn_in_scope(function.clone(), &scope);
         }
+
+        Ok(())
     }
 
     pub(crate) fn eval_internal_fn(

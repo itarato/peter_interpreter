@@ -1160,7 +1160,7 @@ impl AstStatement {
             }
             Self::Return(expr) => expr.eval(vm).map(|result| Some(result.as_return_value())),
             Self::ClassDef(class) => {
-                vm.establish_class(class.clone());
+                vm.establish_class(class.clone())?;
                 Ok(None)
             }
         }
