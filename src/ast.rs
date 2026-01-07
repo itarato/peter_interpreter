@@ -973,6 +973,7 @@ impl AstFn {
 pub(crate) struct AstClass {
     pub(crate) name: String,
     pub(crate) functions: Vec<Rc<AstFn>>,
+    pub(crate) super_class: Option<String>,
 }
 
 #[derive(Debug)]

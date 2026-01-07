@@ -274,6 +274,14 @@ impl<'a> Parser<'a> {
 
                     let name = self.pop_and_assert(&TokenKind::Identifier)?;
 
+                    let super_class = if self.is_next_token_kind(TokenKind::Less) {
+                        self.reader.pop(); // less
+                        let super_class_ident = self.pop_and_assert(&TokenKind::Identifier)?;
+                        Some(super_class_ident.lexeme.to_string())
+                    } else {
+                        None
+                    };
+
                     self.pop_and_assert(&TokenKind::LeftBrace)?;
                     self.inspector.enter_class_scope();
 
@@ -285,6 +293,7 @@ impl<'a> Parser<'a> {
                     Ok(AstStatement::ClassDef(Rc::new(AstClass {
                         name: name.lexeme.to_string(),
                         functions,
+                        super_class,
                     })))
                 }
 

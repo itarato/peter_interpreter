@@ -354,6 +354,16 @@ impl VM {
         }
     }
 
+    pub(crate) fn load_class(&self, name: &str) -> Option<Rc<AstClass>> {
+        for scope in self.scope_iter() {
+            if scope.borrow().classes.contains_key(name) {
+                return scope.borrow().classes.get(name).cloned();
+            }
+        }
+
+        None
+    }
+
     pub(crate) fn eval_internal_fn(
         &mut self,
         name: &str,
