@@ -236,9 +236,17 @@ impl VM {
         scope.borrow().dump_scope_content();
 
         let mut max_allowed_var_id = u64::MAX;
+        let mut class_scope_latch = false;
 
         for scope in Self::make_scope_iter(scope) {
             let scope_ref = scope.borrow();
+
+            // Instance variables are only seeing down to the last class, and not lower.
+            // We cannot fully remove the below class scope elsewhere since class functions do see
+            // that level too.
+            if class_scope_latch && limit_to_class_scope && !scope_ref.kind.is_class() {
+                break;
+            }
 
             if scope_ref.vars.contains_key(name) {
                 let var_data = scope_ref.vars.get(name).unwrap();
@@ -249,11 +257,8 @@ impl VM {
                 return Some(var_data.value.clone());
             }
 
-            // Instance variables are only seeing down to class, and not lower.
-            // We cannot fully remove the below class scope since class functions do see
-            // that level too.
-            if limit_to_class_scope && scope_ref.kind.is_class() {
-                break;
+            if scope_ref.kind.is_class() {
+                class_scope_latch = true;
             }
 
             max_allowed_var_id =
