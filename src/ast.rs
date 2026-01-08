@@ -822,39 +822,6 @@ impl AstExpression {
                     )
                     .into()),
                 }
-
-                // match vm.load_variable("this") {
-                //     Some(AstValue::ClassInstance(instance)) => {
-                //         if let Some(super_class_value) = &instance
-                //             .class
-                //             .super_class
-                //             .as_ref()
-                //             .and_then(|name| vm.load_variable(&name))
-                //         {
-                //             match super_class_value {
-                //                 AstValue::ClassRef { class, scope, .. } => {
-                //                     debug!("Current class is: {:?}", vm.current_class());
-                //                     Ok(AstValue::ClassInstance(AstValueClassInstance {
-                //                         class: class.clone(),
-                //                         is_return: false,
-                //                         scope: scope.clone(),
-                //                     }))
-                //                 }
-                //                 _ => Err("Error".into()),
-                //             }
-                //         } else {
-                //             Err(format!(
-                //                 "Error: super used in a class {} without a super class",
-                //                 &instance.class.name
-                //             )
-                //             .into())
-                //         }
-                //     }
-                //     Some(other) => {
-                //         Err(format!("Error: unexpected instance type: {:?}", other).into())
-                //     }
-                //     None => Err("Error: not a class context".into()),
-                // }
             }
         }
     }
@@ -940,7 +907,7 @@ fn evaluate_expr_call(
 
             if let Some(fn_owner_class) = &function.owner_class {
                 debug!("Entering class: {:?}", function.owner_class);
-                vm.enter_class(function.owner_class.as_ref().unwrap().clone());
+                vm.enter_class(fn_owner_class.clone());
             }
 
             let result = function.eval(vm, args, final_scope, scope_barrier);
