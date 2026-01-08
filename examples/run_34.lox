@@ -1,0 +1,18 @@
+class Bar {
+  bar() {
+    print "Bar.bar";
+  }
+}
+
+class Foo < Bar {
+  bar() {
+    this.x = 123;
+    print this.x;
+  }
+
+  baz() {
+    super.bar();
+  }
+}
+
+Foo().baz();
