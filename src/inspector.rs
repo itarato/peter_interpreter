@@ -7,6 +7,7 @@ use crate::common::Error;
 const SCOPE_FLAG_FN: u8 = 0b0001;
 const SCOPE_FLAG_CLASS: u8 = 0b0010;
 const SCOPE_FLAG_INIT_FN: u8 = 0b0101;
+const SCOPE_FLAG_SUPER_CLASS_CLASS: u8 = 0b1000;
 
 pub(crate) struct Inspector {
     static_scope_level: Vec<u8>,
@@ -45,8 +46,15 @@ impl Inspector {
         self.static_scope_level.pop();
     }
 
-    pub(crate) fn enter_class_scope(&mut self, name: String) {
-        self.static_scope_level.push(SCOPE_FLAG_CLASS);
+    pub(crate) fn enter_class_scope(&mut self, name: String, is_superclass: bool) {
+        self.static_scope_level.push(
+            SCOPE_FLAG_CLASS
+                | (if is_superclass {
+                    SCOPE_FLAG_SUPER_CLASS_CLASS
+                } else {
+                    0
+                }),
+        );
         self.class_scope.push(name);
     }
 
@@ -73,6 +81,12 @@ impl Inspector {
         self.static_scope_level
             .iter()
             .any(|scope_flag| (scope_flag & SCOPE_FLAG_CLASS) > 0)
+    }
+
+    pub(crate) fn is_super_class_scope(&self) -> bool {
+        self.static_scope_level.iter().any(|scope_flag| {
+            (scope_flag & SCOPE_FLAG_SUPER_CLASS_CLASS) == SCOPE_FLAG_SUPER_CLASS_CLASS
+        })
     }
 
     pub(crate) fn is_class_init_fn_scope(&self) -> bool {

@@ -292,7 +292,8 @@ impl<'a> Parser<'a> {
                     };
 
                     self.pop_and_assert(&TokenKind::LeftBrace)?;
-                    self.inspector.enter_class_scope(name.lexeme.to_string());
+                    self.inspector
+                        .enter_class_scope(name.lexeme.to_string(), super_class.is_some());
 
                     let functions = self.parse_class_method_list()?;
 
@@ -502,8 +503,15 @@ impl<'a> Parser<'a> {
                 }
             }
             TokenKind::Super => {
-                if self.inspector.is_class_scope() {
-                    Ok(AstExpression::Super)
+                if self.inspector.is_super_class_scope() {
+                    if !self.is_next_token_kind(TokenKind::Dot) {
+                        Err(ParsingError {
+                            token: self.reader.peek(),
+                            msg: "Error: <super> must be followed by a dot".into(),
+                        })
+                    } else {
+                        Ok(AstExpression::Super)
+                    }
                 } else {
                     Err(ParsingError {
                         token: Some(token),
