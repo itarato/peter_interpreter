@@ -313,6 +313,7 @@ pub(crate) enum AstExpression {
         suffix: Box<AstExpression>,
     },
     This,
+    Super,
 }
 
 impl AstExpression {
@@ -340,6 +341,7 @@ impl AstExpression {
                 suffix,
             } => format!("{}.{}", base.dump(), suffix.dump()),
             Self::This => "this".to_string(),
+            Self::Super => "super".to_string(),
         }
     }
 
@@ -794,6 +796,66 @@ impl AstExpression {
                 vm.load_variable("this")
                     .ok_or("<this> is not found in scope".into())
             }
+
+            Self::Super => {
+                //
+                match vm
+                    .current_class()
+                    .and_then(|current_class_name| vm.load_variable(&current_class_name))
+                    .and_then(|value| match value {
+                        AstValue::ClassRef { class, .. } => class.super_class.clone(),
+                        _ => None,
+                    })
+                    .and_then(|super_class_name| vm.load_variable(&super_class_name))
+                {
+                    Some(AstValue::ClassRef { class, scope, .. }) => {
+                        debug!("Got class: {:?}", class.name);
+                        Ok(AstValue::ClassInstance(AstValueClassInstance {
+                            class: class.clone(),
+                            is_return: false,
+                            scope: scope.clone(),
+                        }))
+                    }
+                    _ => Err(format!(
+                        "Error: super used in a class {:?} without a super class",
+                        &vm.current_class()
+                    )
+                    .into()),
+                }
+
+                // match vm.load_variable("this") {
+                //     Some(AstValue::ClassInstance(instance)) => {
+                //         if let Some(super_class_value) = &instance
+                //             .class
+                //             .super_class
+                //             .as_ref()
+                //             .and_then(|name| vm.load_variable(&name))
+                //         {
+                //             match super_class_value {
+                //                 AstValue::ClassRef { class, scope, .. } => {
+                //                     debug!("Current class is: {:?}", vm.current_class());
+                //                     Ok(AstValue::ClassInstance(AstValueClassInstance {
+                //                         class: class.clone(),
+                //                         is_return: false,
+                //                         scope: scope.clone(),
+                //                     }))
+                //                 }
+                //                 _ => Err("Error".into()),
+                //             }
+                //         } else {
+                //             Err(format!(
+                //                 "Error: super used in a class {} without a super class",
+                //                 &instance.class.name
+                //             )
+                //             .into())
+                //         }
+                //     }
+                //     Some(other) => {
+                //         Err(format!("Error: unexpected instance type: {:?}", other).into())
+                //     }
+                //     None => Err("Error: not a class context".into()),
+                // }
+            }
         }
     }
 
@@ -816,6 +878,7 @@ impl AstExpression {
                 base.includes_identifier_in_scope(subject)
             }
             AstExpression::This => false,
+            AstExpression::Super => false,
         }
     }
 
@@ -875,7 +938,17 @@ fn evaluate_expr_call(
                 scope
             };
 
+            if let Some(fn_owner_class) = &function.owner_class {
+                debug!("Entering class: {:?}", function.owner_class);
+                vm.enter_class(function.owner_class.as_ref().unwrap().clone());
+            }
+
             let result = function.eval(vm, args, final_scope, scope_barrier);
+
+            if function.owner_class.is_some() {
+                debug!("Leaving class: {:?}", function.owner_class);
+                vm.leave_class();
+            }
 
             if function.name == "init" {
                 if let Some(instance) = instance {
@@ -925,6 +998,7 @@ pub(crate) struct AstFn {
     pub(crate) name: String,
     pub(crate) args: Vec<String>,
     pub(crate) body: Box<AstStatementList>,
+    pub(crate) owner_class: Option<String>,
 }
 
 impl AstFn {

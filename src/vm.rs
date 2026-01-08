@@ -122,10 +122,10 @@ impl Scope {
     }
 
     fn dump_super_class_scopes(&self, level: &mut usize) {
+        *level += 1;
         self.dump_content(*level);
 
         if let Some(super_class_scope) = &self.super_class_scope {
-            *level += 1;
             super_class_scope.borrow().dump_super_class_scopes(level);
         }
     }
@@ -141,6 +141,10 @@ impl Scope {
     ) -> Self {
         self.super_class_scope = super_class_scope;
         self
+    }
+
+    pub(crate) fn is_root(&self) -> bool {
+        self.parent.is_none()
     }
 }
 
@@ -164,6 +168,7 @@ impl Iterator for ScopeIter {
 
 pub(crate) struct VM {
     scopes: Vec<Rc<RefCell<Scope>>>,
+    class_scope: Vec<String>,
     id_provider: u64,
 }
 
@@ -172,7 +177,20 @@ impl VM {
         Self {
             scopes: vec![Rc::new(RefCell::new(Scope::new(ScopeKind::Local)))],
             id_provider: 0,
+            class_scope: vec![],
         }
+    }
+
+    pub(crate) fn enter_class(&mut self, name: String) {
+        self.class_scope.push(name);
+    }
+
+    pub(crate) fn leave_class(&mut self) {
+        self.class_scope.pop();
+    }
+
+    pub(crate) fn current_class(&self) -> Option<&String> {
+        self.class_scope.last()
     }
 
     pub(crate) fn get_unique_id(&mut self) -> u64 {
@@ -250,7 +268,10 @@ impl VM {
 
             if scope_ref.vars.contains_key(name) {
                 let var_data = scope_ref.vars.get(name).unwrap();
-                if var_data.id > max_allowed_var_id && !scope_ref.kind.is_instance() {
+                if var_data.id > max_allowed_var_id
+                    && !scope_ref.kind.is_instance()
+                    && !scope_ref.is_root()
+                {
                     continue;
                 }
 

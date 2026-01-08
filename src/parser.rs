@@ -68,7 +68,8 @@ impl<'a> Parser<'a> {
                 | TokenKind::Bang
                 | TokenKind::LeftParen
                 | TokenKind::Identifier
-                | TokenKind::This => {
+                | TokenKind::This
+                | TokenKind::Super => {
                     let expr = self.parse_expression()?;
 
                     if !skip_semicolon {
@@ -232,7 +233,7 @@ impl<'a> Parser<'a> {
 
                 TokenKind::Fun => {
                     self.reader.pop(); // fun
-                    self.parse_function()
+                    self.parse_function(None)
                         .map(|function| AstStatement::FnDef(Rc::new(function)))
                 }
 
@@ -291,9 +292,9 @@ impl<'a> Parser<'a> {
                     };
 
                     self.pop_and_assert(&TokenKind::LeftBrace)?;
-                    self.inspector.enter_class_scope();
+                    self.inspector.enter_class_scope(name.lexeme.to_string());
 
-                    let functions = self.parse_class_method_list()?;
+                    let functions = self.parse_class_method_list(name.lexeme.to_string())?;
 
                     self.inspector.leave_class_scope();
                     self.pop_and_assert(&TokenKind::RightBrace)?;
@@ -319,7 +320,10 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(crate) fn parse_class_method_list(&mut self) -> Result<Vec<Rc<AstFn>>, ParsingError<'a>> {
+    pub(crate) fn parse_class_method_list(
+        &mut self,
+        class_name: String,
+    ) -> Result<Vec<Rc<AstFn>>, ParsingError<'a>> {
         let mut functions = vec![];
 
         loop {
@@ -327,14 +331,17 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            functions.push(Rc::new(self.parse_class_method()?));
+            functions.push(Rc::new(self.parse_class_method(class_name.clone())?));
         }
 
         Ok(functions)
     }
 
-    pub(crate) fn parse_class_method(&mut self) -> Result<AstFn, ParsingError<'a>> {
-        self.parse_function()
+    pub(crate) fn parse_class_method(
+        &mut self,
+        class_name: String,
+    ) -> Result<AstFn, ParsingError<'a>> {
+        self.parse_function(Some(class_name))
     }
 
     pub(crate) fn parse_expression(&mut self) -> Result<AstExpression, ParsingError<'a>> {
@@ -496,7 +503,17 @@ impl<'a> Parser<'a> {
                 } else {
                     Err(ParsingError {
                         token: Some(token),
-                        msg: "Error: this in a non class context.".into(),
+                        msg: "Error: <this> in a non class context.".into(),
+                    })
+                }
+            }
+            TokenKind::Super => {
+                if self.inspector.is_class_scope() {
+                    Ok(AstExpression::Super)
+                } else {
+                    Err(ParsingError {
+                        token: Some(token),
+                        msg: "Error: <super> in a non class context.".into(),
                     })
                 }
             }
@@ -508,7 +525,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_function(&mut self) -> Result<AstFn, ParsingError<'a>> {
+    fn parse_function(&mut self, owner_class: Option<String>) -> Result<AstFn, ParsingError<'a>> {
         let name_token = self.pop_and_assert(&TokenKind::Identifier)?;
 
         self.reader.pop(); // left paren
@@ -559,6 +576,7 @@ impl<'a> Parser<'a> {
             name: name_token.lexeme.to_string(),
             args,
             body: Box::new(body),
+            owner_class: self.inspector.current_class(),
         })
     }
 

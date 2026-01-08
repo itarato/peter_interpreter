@@ -11,6 +11,7 @@ const SCOPE_FLAG_INIT_FN: u8 = 0b0101;
 pub(crate) struct Inspector {
     static_scope_level: Vec<u8>,
     declared_scope_vars: Vec<HashSet<String>>,
+    class_scope: Vec<String>,
 }
 
 impl Inspector {
@@ -18,6 +19,7 @@ impl Inspector {
         Self {
             static_scope_level: vec![],
             declared_scope_vars: vec![HashSet::new()],
+            class_scope: vec![],
         }
     }
 
@@ -43,12 +45,18 @@ impl Inspector {
         self.static_scope_level.pop();
     }
 
-    pub(crate) fn enter_class_scope(&mut self) {
+    pub(crate) fn enter_class_scope(&mut self, name: String) {
         self.static_scope_level.push(SCOPE_FLAG_CLASS);
+        self.class_scope.push(name);
     }
 
     pub(crate) fn leave_class_scope(&mut self) {
         self.static_scope_level.pop();
+        self.class_scope.pop();
+    }
+
+    pub(crate) fn current_class(&self) -> Option<String> {
+        self.class_scope.last().cloned()
     }
 
     pub(crate) fn is_global_scope(&self) -> bool {
